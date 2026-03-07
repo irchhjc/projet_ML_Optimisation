@@ -1,3 +1,60 @@
+###############################
+# Python / Data Science / ML  #
+###############################
+
+# --- Environnements virtuels ---
+.venv/
+venv/
+env/
+.env/
+.ml_opt/
+
+# --- Fichiers Python générés ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- Notebooks ---
+.ipynb_checkpoints/
+
+# --- Logs & debug ---
+logs/
+*.log
+
+# --- Cache & artefacts de tests ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+
+# --- Artefacts de ML / résultats ---
+# On ignore tout dans results/ sauf l'étude Optuna principale
+results/*
+!results/optuna_study.db
+results/checkpoints/
+results/figures/
+
+# Si tu veux versionner d'autres résultats finaux, ajoute des exceptions avec "!"
+
+# --- Données locales (brutes / intermédiaires) ---
+data/
+datasets/
+
+# --- IDE / OS ---
+.vscode/
+.idea/
+*.code-workspace
+*.iml
+
+.DS_Store
+Thumbs.db
+
+# --- Divers ---
+*.tmp
+*.swp
+*.swo
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
