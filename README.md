@@ -162,6 +162,13 @@ Le protocole étudie un **grid search** via Optuna sur :
 
 ## 📬 Contact
 
-- Enseignant : mbialaura12@gmail.com
-- Soumission : Rapport PDF + lien GitHub par mail
-- **Date limite : 13 mars 2026**
+**Auteurs du projet :**
+- NGOULOU NGOUBILI Irch
+- MOYO Guillaine
+- DOMEVENOU Wisdom
+
+**Contact encadrant :**
+- mbialaura12@gmail.com
+
+Soumission : Rapport PDF + lien GitHub par mail  
+**Date limite : 13 mars 2026**

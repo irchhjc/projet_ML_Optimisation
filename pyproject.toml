@@ -2,7 +2,11 @@
 name = "g10-camembert-regularisation"
 version = "0.1.0"
 description = "G10 - Fine-tuning CamemBERT sur Allociné : Étude de la régularisation et généralisation (P02)"
-authors = ["Groupe 10 <groupe10@etudiant.fr>"]
+authors = [
+	"NGOULOU NGOUBILI Irch",
+	"MOYO Guillaine",
+	"DOMEVENOU Wisdom",
+]
 readme = "README.md"
 license = "MIT"
 
