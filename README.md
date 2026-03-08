@@ -111,12 +111,12 @@ Ce script :
 - calcule un loss landscape 1D autour du minimum pour chaque configuration ;
 - génère une figure de comparaison dans `results/figures/loss_landscape_1d.png` avec la *sharpness* de chaque minimum.
 
-### 4. Dashboard Optuna (optionnel)
+### 4. Dashboard Optuna 
 
-Si `optuna-dashboard` est installé dans ton environnement :
+Si `pip install optuna-dashboard` est installé dans ton environnement :
 
 ```bash
-optuna-dashboard sqlite:///results/optuna_study.db --study-name g10_p02_regularisation
+optuna-dashboard sqlite:///results/optuna_study.db
 ```
 
 Cela ouvre une interface web interactive pour explorer tous les trials Optuna.
