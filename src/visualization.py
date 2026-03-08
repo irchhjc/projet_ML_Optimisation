@@ -292,10 +292,13 @@ def plot_optuna_importance(
     """Visualise l'importance des hyperparamètres selon Optuna."""
     try:
         from optuna.visualization.matplotlib import plot_param_importances
-        fig, ax = plt.subplots(figsize=(8, 4))
-        plot_param_importances(study, ax=ax)
+
+        # Avec Optuna >= 3.x, plot_param_importances ne prend plus "ax" en argument
+        # et renvoie un objet Axes. On récupère ensuite la figure associée.
+        ax = plot_param_importances(study)
+        fig = ax.figure
         ax.set_title("Importance des hyperparamètres (Optuna TPE)", fontsize=12)
-        plt.tight_layout()
+        fig.tight_layout()
         _save_or_show(fig, save_path, "optuna_importance.png")
     except Exception as e:
         logger.warning("Impossible de tracer l'importance : %s", e)

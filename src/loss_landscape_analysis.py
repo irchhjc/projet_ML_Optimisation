@@ -1,0 +1,204 @@
+"""loss_landscape_analysis.py — Analyse approfondie du loss landscape (P02)
+
+Objectif
+--------
+Comparer la géométrie du minimum (plat vs pointu) pour plusieurs
+configurations de régularisation sur Allociné :
+  - configuration sous‑régularisée (peu de weight decay / dropout)
+  - configuration baseline (config par défaut du projet)
+  - configuration fortement régularisée (weight decay / dropout élevés)
+  - éventuellement : meilleure configuration trouvée par Optuna
+
+Pour chaque configuration, on :
+  1. entraîne rapidement un modèle (quelques époques, dataset réduit)
+  2. calcule un loss landscape 1D autour du minimum trouvé
+  3. trace une figure de comparaison avec la sharpness pour chaque courbe
+
+Lance avec, depuis la racine du projet :
+
+    poetry run run-landscape-loss
+
+Les figures seront sauvegardées dans results/figures.
+"""
+from __future__ import annotations
+
+import json
+import logging
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Tuple
+
+import torch
+
+from src.config import (
+    BaselineConfig,
+    FIGURES_DIR,
+    RESULTS_DIR,
+    LandscapeConfig,
+)
+from src.data_loader import prepare_datasets
+from src.model_setup import get_device, load_model, load_tokenizer
+from src.trainer import CamembertTrainer, TrainConfig
+from src.visualization import compute_loss_landscape_1d, plot_loss_landscape_comparison
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class LandscapeRunConfig:
+    label: str
+    weight_decay: float
+    dropout: float
+    learning_rate: float
+
+
+def _load_best_optuna_config(results_dir: Path) -> LandscapeRunConfig | None:
+    """Charge la meilleure configuration trouvée par Optuna si disponible."""
+    best_path = results_dir / "best_params.json"
+    if not best_path.exists():
+        logger.info("Aucun best_params.json trouvé, pas de config Optuna ajoutée.")
+        return None
+
+    with open(best_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    best = data.get("best_params", {})
+    if not {"weight_decay", "dropout", "learning_rate"}.issubset(best.keys()):
+        logger.warning("best_params.json ne contient pas les clés complètes attendues.")
+        return None
+
+    label = (
+        f"Optuna best (wd={best['weight_decay']:.1e}, "
+        f"dropout={best['dropout']:.2f})"
+    )
+    return LandscapeRunConfig(
+        label=label,
+        weight_decay=float(best["weight_decay"]),
+        dropout=float(best["dropout"]),
+        learning_rate=float(best["learning_rate"]),
+    )
+
+
+def _train_and_compute_landscape(
+    cfg: LandscapeRunConfig,
+    tokenizer,
+    device: torch.device,
+    train_ds,
+    val_ds,
+    landscape_cfg: LandscapeConfig,
+) -> Tuple[str, Tuple]:
+    """Entraîne un modèle pour une config donnée et calcule son loss landscape 1D."""
+    logger.info(
+        "\n=== Configuration '%s' ===\n  weight_decay = %.1e | dropout = %.2f | lr = %.2e",
+        cfg.label, cfg.weight_decay, cfg.dropout, cfg.learning_rate,
+    )
+
+    model, _ = load_model(dropout=cfg.dropout, device=device)
+
+    train_config = TrainConfig(
+        learning_rate=cfg.learning_rate,
+        weight_decay=cfg.weight_decay,
+        dropout=cfg.dropout,
+        batch_size=16,
+        gradient_accumulation_steps=2,
+        num_epochs=2,  # entraînement court pour l'analyse
+        warmup_ratio=0.1,
+        early_stopping_patience=2,
+        seed=42,
+    )
+
+    trainer = CamembertTrainer(
+        model=model,
+        train_dataset=train_ds,
+        val_dataset=val_ds,
+        config=train_config,
+        device=device,
+    )
+
+    result = trainer.train()
+    logger.info("F1-val (config '%s') = %.4f", cfg.label, result["best_val_f1"])
+
+    alphas, losses = compute_loss_landscape_1d(
+        model=model,
+        dataset=val_ds,
+        device=device,
+        cfg=landscape_cfg,
+    )
+    return cfg.label, (alphas, losses)
+
+
+def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s — %(levelname)s — %(message)s",
+        datefmt="%H:%M:%S",
+    )
+
+    device = get_device()
+    tokenizer = load_tokenizer()
+
+    # Dataset réduit pour que l'analyse reste abordable sur CPU
+    train_ds, val_ds, _ = prepare_datasets(
+        tokenizer,
+        n_train=200,  # par classe
+        n_val=100,
+        n_test=50,
+        seed=42,
+    )
+
+    baseline = BaselineConfig()
+
+    configs = [
+        # Sous-régularisation : gap de généralisation attendu élevé
+        LandscapeRunConfig(
+            label="Sous-régularisé (wd=1e-5, dropout=0.0)",
+            weight_decay=1e-5,
+            dropout=0.0,
+            learning_rate=baseline.learning_rate,
+        ),
+        # Baseline du projet
+        LandscapeRunConfig(
+            label="Baseline (wd=1e-4, dropout=0.1)",
+            weight_decay=baseline.weight_decay,
+            dropout=baseline.dropout,
+            learning_rate=baseline.learning_rate,
+        ),
+        # Fortement régularisé : minima attendus plus plats mais F1 plus faible
+        LandscapeRunConfig(
+            label="Fortement régularisé (wd=1e-2, dropout=0.3)",
+            weight_decay=1e-2,
+            dropout=0.3,
+            learning_rate=baseline.learning_rate,
+        ),
+    ]
+
+    # Ajout éventuel de la meilleure config Optuna
+    optuna_cfg = _load_best_optuna_config(RESULTS_DIR)
+    if optuna_cfg is not None:
+        configs.append(optuna_cfg)
+
+    landscape_cfg = LandscapeConfig()
+
+    results: Dict[str, Tuple] = {}
+    for cfg in configs:
+        label, curve = _train_and_compute_landscape(
+            cfg,
+            tokenizer=tokenizer,
+            device=device,
+            train_ds=train_ds,
+            val_ds=val_ds,
+            landscape_cfg=landscape_cfg,
+        )
+        results[label] = curve
+
+    FIGURES_DIR.mkdir(parents=True, exist_ok=True)
+    sharpnesses = plot_loss_landscape_comparison(results, save_path=FIGURES_DIR)
+
+    logger.info("Analyse du loss landscape terminée.")
+    logger.info("Sharpness par configuration :")
+    for label, sharp in sharpnesses.items():
+        logger.info("  %-40s  %.6f", label, sharp)
+
+
+if __name__ == "__main__":
+    main()
