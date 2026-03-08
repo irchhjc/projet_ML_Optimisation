@@ -27,7 +27,8 @@ g10_camembert/
 │   ├── model_setup.py      # Init CamemBERT avec dropout configurable
 │   ├── trainer.py          # Boucle d'entraînement custom
 │   ├── optimization.py     # Étude Optuna (weight decay × dropout)
-│   ├── visualization.py    # Loss landscape + courbes de généralisation
+│   ├── visualization.py    # Heatmap P02 + importance des hyperparamètres
+│   ├── loss_landscape_analysis.py # Analyse approfondie du loss landscape 1D
 │   └── metrics.py          # F1, gap train/val, sharpness
 ├── notebooks/
 │   ├── 01_exploration.ipynb
@@ -35,7 +36,13 @@ g10_camembert/
 ├── tests/
 │   └── test_data_loader.py
 ├── results/
-│   └── figures/
+│   ├── optuna_study.db     # Base SQLite de l'étude Optuna
+│   ├── optuna_study.pkl    # Étude Optuna sérialisée
+│   ├── optuna_trials.csv   # Historique détaillé des trials
+│   ├── best_params.json    # Meilleure config trouvée par Optuna
+│   ├── grid_p02_results.csv# Résultats grille exhaustive (12 combinaisons)
+│   ├── checkpoints/        # Meilleurs modèles sauvegardés
+│   └── figures/            # Toutes les figures générées (heatmap, importance, loss landscape, ...)
 └── report/
 ```
 
@@ -58,22 +65,63 @@ poetry shell
 
 ## ▶️ Exécution
 
-### 1. Optimisation Optuna (recherche de weight_decay × dropout)
+### 1. Optimisation P02 (Optuna +/− grille exhaustive)
+
+Depuis la racine du projet, avec l'environnement Poetry activé :
+
 ```bash
-poetry run python -m src.optimization --n-trials 20 --output results/optuna_study.pkl
+# Étude Optuna seule (recherche Bayésienne)
+poetry run run-optimization --mode optuna --n-trials 20 --output results
+
+# Grille déterministe seule (12 combinaisons weight_decay × dropout)
+poetry run run-optimization --mode grid --output results
+
+# Optuna + grille (pour avoir à la fois best_params et grid_p02_results.csv)
+poetry run run-optimization --mode both --n-trials 20 --output results
 ```
 
-### 2. Analyse du Loss Landscape
+Les artefacts principaux sont écrits dans `results/` :
+- `optuna_study.db`, `optuna_study.pkl`, `optuna_trials.csv`, `best_params.json`
+- `grid_p02_results.csv` pour la grille complète P02
+
+### 2. Visualisations Optuna (heatmap + importance des hyperparamètres)
+
 ```bash
-poetry run python -m src.visualization --checkpoint results/best_model --output results/figures/
+# Importance des hyperparamètres (Optuna)
+poetry run python -m src.visualization --study results/optuna_study.pkl
+
+# Heatmap gap / F1 + importance (si la grille a été calculée)
+poetry run python -m src.visualization \
+	--study results/optuna_study.pkl \
+	--grid-csv results/grid_p02_results.csv
 ```
 
-### 3. Entraînement final avec les meilleurs hyperparamètres
+Les figures sont sauvegardées dans `results/figures/` (par ex. `optuna_importance.png`, `heatmap_p02.png`).
+
+### 3. Analyse du loss landscape 1D (minima plats vs pointus)
+
+Pour comparer la géométrie du minimum entre plusieurs configurations de régularisation :
+
 ```bash
-poetry run python -m src.trainer --config results/best_params.json --mode final
+poetry run run-landscape-loss
 ```
 
-### 4. Lancer les notebooks
+Ce script :
+- entraîne rapidement plusieurs configurations (sous‑régularisée, baseline, très régularisée, + meilleure config Optuna si disponible) sur un sous‑ensemble d'Allociné ;
+- calcule un loss landscape 1D autour du minimum pour chaque configuration ;
+- génère une figure de comparaison dans `results/figures/loss_landscape_1d.png` avec la *sharpness* de chaque minimum.
+
+### 4. Dashboard Optuna (optionnel)
+
+Si `optuna-dashboard` est installé dans ton environnement :
+
+```bash
+optuna-dashboard sqlite:///results/optuna_study.db --study-name g10_p02_regularisation
+```
+
+Cela ouvre une interface web interactive pour explorer tous les trials Optuna.
+
+### 5. Lancer les notebooks
 ```bash
 poetry run jupyter notebook notebooks/
 ```
