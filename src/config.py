@@ -30,9 +30,9 @@ NUM_LABELS = 2
 LABEL_NAMES = ["négatif", "positif"]
 
 # Sous-ensembles pour CPU (équilibrés par classe)
-N_TRAIN_PER_CLASS = 500            # → 1 000 exemples train total
-N_VAL_PER_CLASS = 150              # → 300 exemples val total
-N_TEST_PER_CLASS = 150             # → 300 exemples test total
+N_TRAIN_PER_CLASS = 500            # → 2 000 exemples train total
+N_VAL_PER_CLASS = 200             # → 600 exemples val total
+N_TEST_PER_CLASS = 200             # → 600  exemples test total
 MAX_SEQ_LENGTH = 256               # Truncation mémoire-safe
 
 
@@ -67,8 +67,8 @@ class BaselineConfig:
 class SearchSpace:
     """
     Grid imposé par le protocole P02 :
-        weight_decay ∈ {1e-5, 1e-4, 1e-3, 1e-2}
-        dropout      ∈ {0.0, 0.1, 0.3}
+        weight_decay = {1e-5, 1e-4, 1e-3, 1e-2}
+        dropout      = {0.0, 0.1, 0.3}
     Optuna explore ensuite cet espace de façon Bayésienne.
     """
     weight_decay_choices: list[float] = field(

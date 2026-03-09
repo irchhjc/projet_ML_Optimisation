@@ -49,7 +49,7 @@ datasets/
 
 .DS_Store
 Thumbs.db
-
+formation_pytorch.py
 # --- Divers ---
 *.tmp
 *.swp

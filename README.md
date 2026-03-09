@@ -123,6 +123,9 @@ Cela ouvre une interface web interactive pour explorer tous les trials Optuna.
 
 ### 5. Lancer les notebooks
 ```bash
+
+
+
 poetry run jupyter notebook notebooks/
 ```
 
