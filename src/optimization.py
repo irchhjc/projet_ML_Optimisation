@@ -260,6 +260,80 @@ def _print_study_summary(study: optuna.Study) -> None:
 
 
 # ---------------------------------------------------------------------------
+# Baseline complète (O1 / O3 / O6)
+# ---------------------------------------------------------------------------
+
+def run_baseline(
+    output_dir: Path = RESULTS_DIR,
+    seed: int = 42,
+) -> dict:
+    """Entraîne une configuration baseline complète et évalue sur test.
+
+    Aligne le code avec les objectifs :
+      - O1 : baseline F1 train/val/test
+      - O3 : gaps de généralisation train-val et train-test
+    """
+    device = get_device()
+    tokenizer = load_tokenizer()
+
+    # Dataset complet (taille CPU-safe définie dans config)
+    train_ds, val_ds, test_ds = prepare_datasets(tokenizer, seed=seed)
+
+    baseline = BaselineConfig()
+    model, _ = load_model(dropout=baseline.dropout, device=device)
+
+    train_cfg = TrainConfig(
+        learning_rate=baseline.learning_rate,
+        weight_decay=baseline.weight_decay,
+        dropout=baseline.dropout,
+        batch_size=baseline.batch_size,
+        gradient_accumulation_steps=baseline.gradient_accumulation_steps,
+        num_epochs=baseline.num_epochs,
+        warmup_ratio=baseline.warmup_ratio,
+        max_steps=baseline.max_steps,
+        early_stopping_patience=2,
+        seed=baseline.seed,
+    )
+
+    trainer = CamembertTrainer(
+        model=model,
+        train_dataset=train_ds,
+        val_dataset=val_ds,
+        config=train_cfg,
+        device=device,
+    )
+
+    train_result = trainer.train()
+    test_metrics = trainer.evaluate_on_test(test_ds)
+
+    best_train_f1 = train_result.get("best_train_f1", 0.0)
+    best_val_f1 = train_result["best_val_f1"]
+
+    gap_train_val = generalization_gap(best_train_f1, best_val_f1)
+    gap_train_test = generalization_gap(best_train_f1, test_metrics["f1_macro"])
+
+    summary = {
+        "baseline_hparams": baseline.__dict__,
+        "best_train_f1": best_train_f1,
+        "best_val_f1": best_val_f1,
+        "f1_test": test_metrics["f1_macro"],
+        "gap_train_val": gap_train_val,
+        "gap_train_test": gap_train_test,
+        "test_metrics": test_metrics,
+        "history": train_result["history"],
+        "total_time_s": train_result["total_time_s"],
+    }
+
+    output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    with open(output_dir / "baseline_metrics.json", "w", encoding="utf-8") as f:
+        json.dump(summary, f, indent=2)
+    logger.info("Baseline sauvegardée dans : %s", output_dir / "baseline_metrics.json")
+
+    return summary
+
+
+# ---------------------------------------------------------------------------
 # Grille exhaustive P02 (pour visualisation heatmap)
 # ---------------------------------------------------------------------------
 
@@ -336,15 +410,18 @@ def main() -> None:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
         "--mode",
-        choices=["optuna", "grid", "both"],
+        choices=["baseline", "optuna", "grid", "both"],
         default="optuna",
-        help="Mode d'optimisation",
+        help="Mode : baseline simple ou étude optuna / grille",
     )
     args = parser.parse_args()
 
     output_dir = Path(args.output)
     device = get_device()
     tokenizer = load_tokenizer()
+
+    if args.mode == "baseline":
+        run_baseline(output_dir=output_dir, seed=args.seed)
 
     if args.mode in ("optuna", "both"):
         run_study(n_trials=args.n_trials, output_dir=output_dir, seed=args.seed)

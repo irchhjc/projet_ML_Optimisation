@@ -14,6 +14,17 @@
 
 ---
 
+## 🎓 Objectifs du projet
+
+En tant que groupe G10 (CamemBERT × Allociné, problématique P02 — Régularisation et Généralisation), le projet poursuit les objectifs expérimentaux suivants :
+
+- **O1 — Baseline de référence** : fine-tuner CamemBERT avec une configuration de base et établir des scores F1 macro sur train/validation/test.
+- **O2 — Impact du weight decay et du dropout sur les performances** : mesurer comment ces hyperparamètres affectent le F1 macro (val/test) et l'accuracy.
+- **O3 — Généralisation** : analyser les gaps de généralisation \(F1_\text{train} - F1_\text{val}\) et \(F1_\text{train} - F1_\text{test}\) pour différentes configurations de régularisation.
+- **O4 — Loss landscape et platitude** : comparer la sharpness des minima pour plusieurs couples (weight decay, dropout) et relier platitude ↔ généralisation.
+- **O5 — Optimisation d'hyperparamètres sous contrainte CPU** : utiliser Optuna (TPE) et une grille réduite pour explorer l'espace (weight decay × dropout × learning rate) sans GPU.
+- **O6 — Recommandations pratiques** : proposer des réglages de régularisation pour CamemBERT sur Allociné qui offrent un bon compromis performance / généralisation / temps de calcul.
+
 ## 📂 Structure du projet
 
 ```
@@ -26,7 +37,7 @@ g10_camembert/
 │   ├── data_loader.py      # Chargement et sous-échantillonnage Allociné
 │   ├── model_setup.py      # Init CamemBERT avec dropout configurable
 │   ├── trainer.py          # Boucle d'entraînement custom
-│   ├── optimization.py     # Étude Optuna (weight decay × dropout)
+│   ├── optimization.py     # Baseline + étude Optuna + grille P02
 │   ├── visualization.py    # Heatmap P02 + importance des hyperparamètres
 │   ├── loss_landscape_analysis.py # Analyse approfondie du loss landscape 1D
 │   └── metrics.py          # F1, gap train/val, sharpness
@@ -41,6 +52,7 @@ g10_camembert/
 │   ├── optuna_trials.csv   # Historique détaillé des trials
 │   ├── best_params.json    # Meilleure config trouvée par Optuna
 │   ├── grid_p02_results.csv# Résultats grille exhaustive (12 combinaisons)
+│   ├── baseline_metrics.json # Baseline : F1 train/val/test + gaps
 │   ├── checkpoints/        # Meilleurs modèles sauvegardés
 │   └── figures/            # Toutes les figures générées (heatmap, importance, loss landscape, ...)
 └── report/
@@ -64,6 +76,21 @@ poetry shell
 ---
 
 ## ▶️ Exécution
+
+### 0. Baseline (O1 / O3)
+
+Depuis la racine du projet, avec l'environnement Poetry activé :
+
+```bash
+# Entraînement baseline + évaluation sur test
+poetry run run-optimization --mode baseline --output results
+```
+
+Ce mode :
+- entraîne CamemBERT avec la configuration `BaselineConfig` définie dans `src/config.py` ;
+- calcule les meilleurs F1 macro sur train/validation et le F1 macro sur test ;
+- calcule les gaps de généralisation (train–val, train–test) ;
+- sauvegarde tout dans `results/baseline_metrics.json`.
 
 ### 1. Optimisation P02 (Optuna +/− grille exhaustive)
 
@@ -146,6 +173,7 @@ Le projet est entièrement conçu pour fonctionner **sans GPU** :
 - Quantification dynamique disponible (`src/model_setup.py`)
 - Loss landscape 1D léger (8 points, ε = 0.05)
 - Early stopping pour limiter le temps de calcul
+- Chargement du dataset Allociné **une seule fois en mémoire** dans `src/data_loader.py` (cache interne + cache HuggingFace sur disque)
 
 ---
 
@@ -157,8 +185,9 @@ Le protocole étudie un **grid search** via Optuna sur :
 - → 12 combinaisons + exploration Bayésienne
 
 **Métriques rapportées :**
-- F1-score macro (test)
-- Gap généralisation = F1_train − F1_val
+- F1-score macro train / validation / test
+- Gaps de généralisation : F1_train − F1_val et F1_train − F1_test
+- Accuracy (complémentaire au F1)
 - Sharpness du minimum (analyse loss landscape)
 
 ---

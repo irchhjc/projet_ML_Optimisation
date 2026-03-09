@@ -34,11 +34,20 @@ logger = logging.getLogger(__name__)
 # Chargement brut
 # ---------------------------------------------------------------------------
 
+# Cache global en mémoire pour éviter de recharger le dataset plusieurs fois
+_RAW_DATASET: Optional[DatasetDict] = None
+
 def load_raw_dataset() -> DatasetDict:
     """
     Charge le dataset Allociné depuis HuggingFace Hub.
     En cas d'absence de connexion, lève une erreur explicite.
     """
+    global _RAW_DATASET
+
+    # Si déjà chargé dans ce processus, on réutilise le cache mémoire
+    if _RAW_DATASET is not None:
+        return _RAW_DATASET
+
     logger.info("Chargement du dataset '%s'...", DATASET_NAME)
     try:
         dataset = load_dataset(DATASET_NAME)
@@ -49,6 +58,9 @@ def load_raw_dataset() -> DatasetDict:
         ) from exc
 
     logger.info("Dataset chargé : %s", dataset)
+
+    # Mise en cache mémoire (HuggingFace gère déjà le cache disque)
+    _RAW_DATASET = dataset
     return dataset
 
 

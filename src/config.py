@@ -98,4 +98,4 @@ class LandscapeConfig:
 OPTUNA_N_TRIALS = 20
 OPTUNA_STUDY_NAME = "g10_p02_regularisation"
 OPTUNA_DIRECTION = "maximize"   # On maximise le F1-score macro
-OPTUNA_DB = str(RESULTS_DIR / "optuna_study.db")
+OPTUNA_DB = str(RESULTS_DIR / "optuna_study.db") # pour pouvoir utiliser optuna-dashboard

@@ -235,7 +235,10 @@ class CamembertTrainer:
         optimizer, scheduler = self._build_optimizer_and_scheduler(train_loader)
 
         best_val_f1 = -1.0
+        best_train_f1 = -1.0
         best_model_state = None
+        best_train_metrics = None
+        best_val_metrics = None
         patience_counter = 0
         start_time = time.time()
 
@@ -268,7 +271,10 @@ class CamembertTrainer:
             # Early stopping & checkpoint
             if val_metrics["f1_macro"] > best_val_f1:
                 best_val_f1 = val_metrics["f1_macro"]
+                best_train_f1 = train_metrics["f1_macro"]
                 best_model_state = copy.deepcopy(self.model.state_dict())
+                best_train_metrics = train_metrics
+                best_val_metrics = val_metrics
                 patience_counter = 0
             else:
                 patience_counter += 1
@@ -285,11 +291,31 @@ class CamembertTrainer:
             self.model.load_state_dict(best_model_state)
 
         total_time = time.time() - start_time
-        logger.info("Entraînement terminé en %.1f s | Meilleur F1 val : %.4f",
-                    total_time, best_val_f1)
+
+        # Gap de généralisation basé sur la meilleure époque (train vs val)
+        if best_train_metrics is not None and best_val_metrics is not None:
+            gap_best = generalization_gap(
+                best_train_metrics["f1_macro"],
+                best_val_metrics["f1_macro"],
+            )
+        else:
+            gap_best = generalization_gap(
+                self.history["train_f1"][-1],
+                self.history["val_f1"][-1],
+            ) if self.history["train_f1"] else generalization_gap(0.0, 0.0)
+
+        logger.info(
+            "Entraînement terminé en %.1f s | Meilleur F1 val : %.4f | Gap train-val=%.4f (%.1f%%)",
+            total_time,
+            best_val_f1,
+            gap_best["gap"],
+            gap_best["gap_pct"],
+        )
 
         return {
             "best_val_f1": best_val_f1,
+            "best_train_f1": best_train_f1,
+            "gap_train_val": gap_best,
             "history": self.history,
             "total_time_s": total_time,
         }
