@@ -24,6 +24,7 @@ import pickle
 from pathlib import Path
 
 import pandas as pd
+from tqdm import tqdm
 
 from src.config import FIGURES_DIR, RESULTS_DIR, OPTUNA_N_TRIALS
 from src.loss_landscape_analysis import main as run_loss_landscape
@@ -80,45 +81,66 @@ def main() -> None:
 
     logger.info("Starting full pipeline with seed=%d", args.seed)
 
-    # 1. Baseline
-    if not args.no_baseline:
-        logger.info("[1/5] Running baseline training + test evaluation...")
-        run_baseline(output_dir=RESULTS_DIR, seed=args.seed)
-    else:
+    # Construire la liste des étapes activées
+    steps: list[tuple[str, callable]] = []
+
+    if args.no_baseline:
         logger.info("Skipping baseline step (requested by flag).")
-
-    # 2. Optuna study
-    if not args.no_optuna:
-        logger.info("[2/5] Running Optuna study (n_trials=%d)...", args.n_trials)
-        run_study(n_trials=args.n_trials, output_dir=RESULTS_DIR, seed=args.seed)
     else:
+        steps.append((
+            "Baseline training + test evaluation",
+            lambda: run_baseline(output_dir=RESULTS_DIR, seed=args.seed),
+        ))
+
+    if args.no_optuna:
         logger.info("Skipping Optuna study (requested by flag).")
-
-    # 3. Grid search P02
-    if not args.no_grid:
-        logger.info("[3/5] Running grid search P02 (weight_decay × dropout)...")
-        # run_grid_search_p02 gère lui-même le chargement du tokenizer / device
-        from src.model_setup import get_device, load_tokenizer
-
-        device = get_device()
-        tokenizer = load_tokenizer()
-        run_grid_search_p02(tokenizer=tokenizer, device=device, output_dir=RESULTS_DIR, seed=args.seed)
     else:
+        steps.append((
+            f"Optuna study (n_trials={args.n_trials})",
+            lambda: run_study(n_trials=args.n_trials, output_dir=RESULTS_DIR, seed=args.seed),
+        ))
+
+    if args.no_grid:
         logger.info("Skipping grid search (requested by flag).")
-
-    # 4. Visualizations
-    if not args.no_viz:
-        logger.info("[4/5] Generating visualizations (heatmap, Optuna importance)...")
-        run_visualizations(results_dir=RESULTS_DIR, figures_dir=FIGURES_DIR)
     else:
+        def _run_grid() -> None:
+            logger.info("Running grid search P02 (weight_decay × dropout)...")
+            from src.model_setup import get_device, load_tokenizer
+
+            device = get_device()
+            tokenizer = load_tokenizer()
+            run_grid_search_p02(
+                tokenizer=tokenizer,
+                device=device,
+                output_dir=RESULTS_DIR,
+                seed=args.seed,
+            )
+
+        steps.append(("Grid search P02", _run_grid))
+
+    if args.no_viz:
         logger.info("Skipping visualization step (requested by flag).")
-
-    # 5. Loss landscape 1D analysis
-    if not args.no_landscape:
-        logger.info("[5/5] Running loss landscape 1D analysis...")
-        run_loss_landscape()
     else:
+        steps.append((
+            "Visualizations (heatmap, Optuna importance)",
+            lambda: run_visualizations(results_dir=RESULTS_DIR, figures_dir=FIGURES_DIR),
+        ))
+
+    if args.no_landscape:
         logger.info("Skipping loss landscape analysis (requested by flag).")
+    else:
+        steps.append(("Loss landscape 1D analysis", run_loss_landscape))
+
+    if not steps:
+        logger.info("No pipeline steps enabled; nothing to run.")
+        return
+
+    total = len(steps)
+    with tqdm(total=total, desc="Pipeline", unit="step") as pbar:
+        for idx, (label, fn) in enumerate(steps, start=1):
+            logger.info("[%d/%d] %s...", idx, total, label)
+            fn()
+            pbar.update(1)
 
     logger.info("Pipeline completed. Results in %s and figures in %s", RESULTS_DIR, FIGURES_DIR)
 
