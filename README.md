@@ -20,7 +20,7 @@ En tant que groupe G10 (CamemBERT × Allociné, problématique P02 - Régularisa
 
 - **O1 - Baseline de référence** : fine-tuner CamemBERT avec une configuration de base et établir des scores F1 macro sur train/validation/test.
 - **O2 - Impact du weight decay et du dropout sur les performances** : mesurer comment ces hyperparamètres affectent le F1 macro (val/test) et l'accuracy.
-- **O3 - Généralisation** : analyser les gaps de généralisation \(F1_\text{train} - F1_\text{val}\) et \(F1_\text{train} - F1_\text{test}\) pour différentes configurations de régularisation.
+- **O3 - Généralisation** : analyser les gaps de généralisation $F1_{\text{train}} - F1_{\text{val}}$ et $F1_{\text{train}} - F1_{\text{test}}$ pour différentes configurations de régularisation.
 - **O4 - Loss landscape et platitude** : comparer la sharpness des minima pour plusieurs couples (weight decay, dropout) et relier platitude ↔ généralisation.
 - **O5 - Optimisation d'hyperparamètres sous contrainte CPU** : utiliser Optuna (TPE) et une grille réduite pour explorer l'espace (weight decay × dropout × learning rate) sans GPU.
 - **O6 - Recommandations pratiques** : proposer des réglages de régularisation pour CamemBERT sur Allociné qui offrent un bon compromis performance / généralisation / temps de calcul.
@@ -168,7 +168,7 @@ poetry run pytest tests/ -v --cov=src
 ## ⚙️ Adaptation CPU
 
 Le projet est entièrement conçu pour fonctionner **sans GPU** :
-- Sous-échantillonnage équilibré (500 train / 150 val par défaut)
+- Sous-échantillonnage équilibré (500 train / 200 val / 200 test par classe par défaut)
 - `gradient_accumulation_steps` pour simuler des grands batch sizes
 - Quantification dynamique disponible (`src/model_setup.py`)
 - Loss landscape 1D léger (8 points, ε = 0.05)

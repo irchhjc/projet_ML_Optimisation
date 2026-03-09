@@ -124,9 +124,10 @@ def build_objective(
 
         # Métriques complémentaires stockées dans le trial (pour analyse)
         history = result["history"]
-        if history["train_f1"]:
-            best_train_f1 = max(history["train_f1"])
-            gap = generalization_gap(best_train_f1, result["best_val_f1"])
+        best_train_f1 = result.get("best_train_f1")
+        gap = result.get("gap_train_val")
+
+        if best_train_f1 is not None and gap is not None:
             trial.set_user_attr("train_f1", best_train_f1)
             trial.set_user_attr("gap", gap["gap"])
             trial.set_user_attr("gap_pct", gap["gap_pct"])

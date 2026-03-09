@@ -15,7 +15,10 @@ RESULTS_DIR = ROOT_DIR / "results"
 FIGURES_DIR = RESULTS_DIR / "figures"
 CHECKPOINTS_DIR = RESULTS_DIR / "checkpoints"
 
-for _d in [RESULTS_DIR, FIGURES_DIR, CHECKPOINTS_DIR]:
+# Dossier pour stocker les données prétraitées / caches légers
+DATA_DIR = ROOT_DIR / "data"
+
+for _d in [RESULTS_DIR, FIGURES_DIR, CHECKPOINTS_DIR, DATA_DIR]:
     _d.mkdir(parents=True, exist_ok=True)
 
 

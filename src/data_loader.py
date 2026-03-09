@@ -8,16 +8,18 @@ Stratégie CPU :
 """
 from __future__ import annotations
 
+import json
 import logging
 import random
 from typing import Optional
 
 import numpy as np
-from datasets import DatasetDict, load_dataset
+from datasets import Dataset, DatasetDict, load_dataset
 from transformers import PreTrainedTokenizerBase
 
 from src.config import (
     DATASET_NAME,
+    DATA_DIR,
     LABEL_COLUMN,
     MAX_SEQ_LENGTH,
     N_TEST_PER_CLASS,
@@ -48,7 +50,34 @@ def load_raw_dataset() -> DatasetDict:
     if _RAW_DATASET is not None:
         return _RAW_DATASET
 
-    logger.info("Chargement du dataset '%s'...", DATASET_NAME)
+    cache_path = DATA_DIR / f"{DATASET_NAME}_raw.json"
+
+    # 1) Tentative de chargement depuis le cache JSON local
+    if cache_path.exists():
+        logger.info(
+            "Chargement du dataset '%s' depuis le cache JSON local : %s",
+            DATASET_NAME,
+            cache_path,
+        )
+        try:
+            with cache_path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+            splits = {
+                split_name: Dataset.from_list(examples)
+                for split_name, examples in data.items()
+            }
+            dataset = DatasetDict(splits)
+            _RAW_DATASET = dataset
+            return dataset
+        except Exception as exc:
+            logger.warning(
+                "Échec du chargement du cache JSON (%s), recours à load_dataset : %s",
+                cache_path,
+                exc,
+            )
+
+    # 2) Fallback : chargement depuis HuggingFace Hub (utilise aussi le cache disque HF)
+    logger.info("Chargement du dataset '%s' depuis HuggingFace Hub...", DATASET_NAME)
     try:
         dataset = load_dataset(DATASET_NAME)
     except Exception as exc:
@@ -58,6 +87,23 @@ def load_raw_dataset() -> DatasetDict:
         ) from exc
 
     logger.info("Dataset chargé : %s", dataset)
+
+    # Sauvegarde légère en JSON pour les prochains runs (texte + label uniquement)
+    try:
+        export = {}
+        for split_name, split in dataset.items():
+            export[split_name] = [
+                {
+                    TEXT_COLUMN: ex[TEXT_COLUMN],
+                    LABEL_COLUMN: ex[LABEL_COLUMN],
+                }
+                for ex in split
+            ]
+        with cache_path.open("w", encoding="utf-8") as f:
+            json.dump(export, f, ensure_ascii=False)
+        logger.info("Cache JSON sauvegardé : %s", cache_path)
+    except Exception as exc:
+        logger.warning("Impossible de sauvegarder le cache JSON (%s) : %s", cache_path, exc)
 
     # Mise en cache mémoire (HuggingFace gère déjà le cache disque)
     _RAW_DATASET = dataset
