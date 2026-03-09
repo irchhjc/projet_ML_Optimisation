@@ -1,4 +1,4 @@
-# G10 — CamemBERT × Allociné : Régularisation & Généralisation
+# G10 - CamemBERT × Allociné : Régularisation & Généralisation
 
 ## 🎯 Problématique (P02)
 
@@ -6,9 +6,9 @@
 
 | Axe | Valeur |
 |-----|--------|
-| Dataset | D05 — Allociné (100k critiques FR, 2 classes) |
-| Modèle | M04 — CamemBERT-base (110M paramètres) |
-| Problématique | P02 — Régularisation et Généralisation |
+| Dataset | D05 - Allociné (100k critiques FR, 2 classes) |
+| Modèle | M04 - CamemBERT-base (110M paramètres) |
+| Problématique | P02 - Régularisation et Généralisation |
 | Méthode d'optimisation | Optuna (Bayésien) |
 | Métrique principale | F1-score (macro) |
 
@@ -16,14 +16,14 @@
 
 ## 🎓 Objectifs du projet
 
-En tant que groupe G10 (CamemBERT × Allociné, problématique P02 — Régularisation et Généralisation), le projet poursuit les objectifs expérimentaux suivants :
+En tant que groupe G10 (CamemBERT × Allociné, problématique P02 - Régularisation et Généralisation), le projet poursuit les objectifs expérimentaux suivants :
 
-- **O1 — Baseline de référence** : fine-tuner CamemBERT avec une configuration de base et établir des scores F1 macro sur train/validation/test.
-- **O2 — Impact du weight decay et du dropout sur les performances** : mesurer comment ces hyperparamètres affectent le F1 macro (val/test) et l'accuracy.
-- **O3 — Généralisation** : analyser les gaps de généralisation \(F1_\text{train} - F1_\text{val}\) et \(F1_\text{train} - F1_\text{test}\) pour différentes configurations de régularisation.
-- **O4 — Loss landscape et platitude** : comparer la sharpness des minima pour plusieurs couples (weight decay, dropout) et relier platitude ↔ généralisation.
-- **O5 — Optimisation d'hyperparamètres sous contrainte CPU** : utiliser Optuna (TPE) et une grille réduite pour explorer l'espace (weight decay × dropout × learning rate) sans GPU.
-- **O6 — Recommandations pratiques** : proposer des réglages de régularisation pour CamemBERT sur Allociné qui offrent un bon compromis performance / généralisation / temps de calcul.
+- **O1 - Baseline de référence** : fine-tuner CamemBERT avec une configuration de base et établir des scores F1 macro sur train/validation/test.
+- **O2 - Impact du weight decay et du dropout sur les performances** : mesurer comment ces hyperparamètres affectent le F1 macro (val/test) et l'accuracy.
+- **O3 - Généralisation** : analyser les gaps de généralisation \(F1_\text{train} - F1_\text{val}\) et \(F1_\text{train} - F1_\text{test}\) pour différentes configurations de régularisation.
+- **O4 - Loss landscape et platitude** : comparer la sharpness des minima pour plusieurs couples (weight decay, dropout) et relier platitude ↔ généralisation.
+- **O5 - Optimisation d'hyperparamètres sous contrainte CPU** : utiliser Optuna (TPE) et une grille réduite pour explorer l'espace (weight decay × dropout × learning rate) sans GPU.
+- **O6 - Recommandations pratiques** : proposer des réglages de régularisation pour CamemBERT sur Allociné qui offrent un bon compromis performance / généralisation / temps de calcul.
 
 ## 📂 Structure du projet
 
