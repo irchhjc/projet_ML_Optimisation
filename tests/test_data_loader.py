@@ -3,6 +3,14 @@ tests/test_data_loader.py — Tests unitaires pour data_loader.py
 """
 import pytest
 import numpy as np
+import sys
+from pathlib import Path
+
+
+# Assure que le package src/ est importable quand les tests sont lancés depuis la racine
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 
 # ---------------------------------------------------------------------------

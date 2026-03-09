@@ -163,6 +163,8 @@ poetry run jupyter notebook notebooks/
 poetry run pytest tests/ -v --cov=src
 ```
 
+Remarque : les tests unitaires couvrent principalement la préparation des données (sous-échantillonnage équilibré, dataset PyTorch) et les métriques (F1-score, gap de généralisation, sharpness). La boucle d'entraînement complète (CamembertTrainer) et l'étude Optuna ne sont pas testées automatiquement : elles sont validées via des tests manuels et l'analyse expérimentale des résultats (courbes de convergence, heatmaps, dashboard Optuna, etc.).
+
 ---
 
 ## ⚙️ Adaptation CPU
