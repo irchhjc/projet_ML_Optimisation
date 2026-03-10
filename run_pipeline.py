@@ -1,9 +1,9 @@
-"""Run the full G10 CamemBERT × Allociné pipeline.
+"""Run the full G10 CamemBERT * Allociné pipeline.
 
 Steps (by default):
   1. Baseline training + test evaluation
-  2. Optuna study (P02: weight_decay × dropout × lr)
-  3. Grid search P02 (weight_decay × dropout)
+  2. Optuna study (P02: weight_decay * dropout * lr)
+  3. Grid search P02 (weight_decay * dropout)
   4. Visualisations (heatmap, Optuna importances)
   5. Loss landscape 1D analysis
 
@@ -104,7 +104,7 @@ def main() -> None:
         logger.info("Skipping grid search (requested by flag).")
     else:
         def _run_grid() -> None:
-            logger.info("Running grid search P02 (weight_decay × dropout)...")
+            logger.info("Running grid search P02 (weight_decay * dropout)...")
             from src.model_setup import get_device, load_tokenizer
 
             device = get_device()

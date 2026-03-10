@@ -33,9 +33,9 @@ NUM_LABELS = 2
 LABEL_NAMES = ["négatif", "positif"]
 
 # Sous-ensembles pour CPU (équilibrés par classe)
-N_TRAIN_PER_CLASS = 500            # → 2 000 exemples train total
-N_VAL_PER_CLASS = 200             # → 600 exemples val total
-N_TEST_PER_CLASS = 200             # → 600  exemples test total
+N_TRAIN_PER_CLASS = 500            # → 1 000 exemples train total
+N_VAL_PER_CLASS = 200             # → 400 exemples val total
+N_TEST_PER_CLASS = 200             # → 400   exemples test total
 MAX_SEQ_LENGTH = 256               # Truncation mémoire-safe
 
 

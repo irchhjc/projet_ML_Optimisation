@@ -150,9 +150,6 @@ Cela ouvre une interface web interactive pour explorer tous les trials Optuna.
 
 ### 5. Lancer les notebooks
 ```bash
-
-
-
 poetry run jupyter notebook notebooks/
 ```
 
@@ -182,8 +179,8 @@ Le projet est entièrement conçu pour fonctionner **sans GPU** :
 ## 📊 Résultats attendus
 
 Le protocole étudie un **grid search** via Optuna sur :
-- `weight_decay` ∈ {1e-5, 1e-4, 1e-3, 1e-2}
-- `dropout` ∈ {0.0, 0.1, 0.3}
+- `weight_decay` = {1e-5, 1e-4, 1e-3, 1e-2}
+- `dropout` = {0.0, 0.1, 0.3}
 - → 12 combinaisons + exploration Bayésienne
 
 **Métriques rapportées :**
@@ -197,7 +194,7 @@ Le protocole étudie un **grid search** via Optuna sur :
 ## 📬 Contact
 
 **Auteurs du projet :**
-- NGOULOU NGOUBILI Irch
+- NGOULOU NGOUBILI Irch Defluviaire (ngoubiliirch@gmail.com)
 - MOYO Guillaine
 - DOMEVENOU Wisdom
 
