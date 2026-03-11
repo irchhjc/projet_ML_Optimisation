@@ -2,9 +2,9 @@
 optimization.py — Étude Optuna pour la problématique P02
 
 Recherche Bayésienne sur :
-  - weight_decay ∈ {1e-5, 1e-4, 1e-3, 1e-2}
-  - dropout      ∈ {0.0, 0.1, 0.3}
-  - learning_rate ∈ [1e-6, 5e-4] (log-scale)
+  - weight_decay = {1e-5, 1e-4, 1e-3, 1e-2}
+  - dropout      = {0.0, 0.1, 0.3}
+  - learning_rate = [1e-6, 5e-4] (log-scale)
 
 Métriques rapportées : F1-score macro (val), gap de généralisation
 """
