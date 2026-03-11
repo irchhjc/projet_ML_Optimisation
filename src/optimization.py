@@ -20,6 +20,7 @@ from pathlib import Path
 import optuna
 import pandas as pd
 
+import src.config as _cfg
 from src.config import (
     BaselineConfig,
     LandscapeConfig,
@@ -52,8 +53,8 @@ def build_objective(
     tokenizer,
     device,
     search_space: SearchSpace,
-    n_train: int = 1000,
-    n_val: int = 200,
+    n_train: int | None = None,
+    n_val: int | None = None,
     seed: int = 42,
 ):
     """
@@ -62,6 +63,11 @@ def build_objective(
     L'utilisation d'une closure permet de pré-charger les données
     une seule fois pour tous les trials.
     """
+    if n_train is None:
+        n_train = _cfg.N_TRAIN_PER_CLASS * 2   # total = 2 × per_class
+    if n_val is None:
+        n_val = _cfg.N_VAL_PER_CLASS * 2
+
     # Chargement des données une fois (tokenizer identique pour tous les trials)
     logger.info("Préparation des datasets pour l'optimisation...")
     train_ds, val_ds, _ = prepare_datasets(

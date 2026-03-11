@@ -30,6 +30,7 @@ import pandas as pd
 import torch
 from tqdm import tqdm
 
+import src.config as _cfg
 from src.config import FIGURES_DIR, RESULTS_DIR, OPTUNA_N_TRIALS
 from src.loss_landscape_analysis import main as run_loss_landscape
 from src.optimization import run_baseline, run_grid_search_p02, run_study
@@ -107,6 +108,14 @@ def main() -> None:
     parser.add_argument("--no-grid", action="store_true", help="Skip grid search P02")
     parser.add_argument("--no-viz", action="store_true", help="Skip visualization generation")
     parser.add_argument("--no-landscape", action="store_true", help="Skip loss landscape analysis")
+    parser.add_argument(
+        "--fast",
+        action="store_true",
+        help=(
+            "Mode rapide : réduit les tailles de dataset, le nombre d'époques et "
+            "les trials Optuna pour une itération rapide (débogage / prototypage)."
+        ),
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -114,6 +123,22 @@ def main() -> None:
         format="%(asctime)s — %(levelname)s — %(message)s",
         datefmt="%H:%M:%S",
     )
+
+    # ── Mode rapide : patch des constantes config en mémoire ────────────
+    if args.fast:
+        import dataclasses
+        _cfg.MAX_SEQ_LENGTH = 64
+        _cfg.N_TRAIN_PER_CLASS = 200
+        _cfg.N_VAL_PER_CLASS = 100
+        _cfg.N_TEST_PER_CLASS = 100
+        _cfg.OPTUNA_N_TRIALS = 5
+        # Patch du champ dataclass pour BaselineConfig et LandscapeConfig
+        _cfg.BaselineConfig.__dataclass_fields__["num_epochs"].default = 2
+        _cfg.LandscapeConfig.__dataclass_fields__["n_points"].default = 5
+        _cfg.LandscapeConfig.__dataclass_fields__["n_samples_eval"].default = 32
+        logger.warning(
+            "Mode --fast activé : seq_len=64, train/class=200, trials=5, epochs=2"
+        )
 
     logger.info("Starting full pipeline with seed=%d", args.seed)
     _set_global_seed(args.seed)

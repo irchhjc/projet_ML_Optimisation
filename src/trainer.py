@@ -203,7 +203,7 @@ class CamembertTrainer:
         metrics = compute_metrics(all_labels, all_preds)
         return avg_loss, metrics
 
-    @torch.no_grad()
+    @torch.inference_mode()
     def _eval_epoch(self, loader: DataLoader) -> tuple[float, dict]:
         """Exécute une passe d'évaluation. Retourne (loss_moy, métriques)."""
         self.model.eval()

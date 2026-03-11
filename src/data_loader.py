@@ -17,14 +17,11 @@ import numpy as np
 from datasets import Dataset, DatasetDict, load_dataset
 from transformers import PreTrainedTokenizerBase
 
+import src.config as _cfg
 from src.config import (
     DATASET_NAME,
     DATA_DIR,
     LABEL_COLUMN,
-    MAX_SEQ_LENGTH,
-    N_TEST_PER_CLASS,
-    N_TRAIN_PER_CLASS,
-    N_VAL_PER_CLASS,
     NUM_LABELS,
     TEXT_COLUMN,
 )
@@ -160,12 +157,15 @@ def balanced_subsample(
 def tokenize_dataset(
     examples: list[dict],
     tokenizer: PreTrainedTokenizerBase,
-    max_length: int = MAX_SEQ_LENGTH,
+    max_length: int | None = None,
 ) -> dict:
     """
     Tokenise une liste d'exemples avec padding et troncature.
     Retourne un dict compatible avec HuggingFace Trainer.
     """
+    if max_length is None:
+        max_length = _cfg.MAX_SEQ_LENGTH
+
     texts = [ex[TEXT_COLUMN] for ex in examples]
     labels = [ex[LABEL_COLUMN] for ex in examples]
 
@@ -214,9 +214,9 @@ class AllocinéDataset(Dataset):
 
 def prepare_datasets(
     tokenizer: PreTrainedTokenizerBase,
-    n_train: int = N_TRAIN_PER_CLASS,
-    n_val: int = N_VAL_PER_CLASS,
-    n_test: int = N_TEST_PER_CLASS,
+    n_train: int | None = None,
+    n_val: int | None = None,
+    n_test: int | None = None,
     seed: int = 42,
 ) -> tuple[AllocinéDataset, AllocinéDataset, AllocinéDataset]:
     """
@@ -230,6 +230,13 @@ def prepare_datasets(
     -------
     train_ds, val_ds, test_ds : AllocinéDataset
     """
+    if n_train is None:
+        n_train = _cfg.N_TRAIN_PER_CLASS
+    if n_val is None:
+        n_val = _cfg.N_VAL_PER_CLASS
+    if n_test is None:
+        n_test = _cfg.N_TEST_PER_CLASS
+
     raw = load_raw_dataset()
 
     logger.info("Sous-échantillonnage : %d exemples/classe (train), %d (val), %d (test)",
