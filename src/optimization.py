@@ -52,8 +52,8 @@ def build_objective(
     tokenizer,
     device,
     search_space: SearchSpace,
-    n_train: int = 500,
-    n_val: int = 150,
+    n_train: int = 1000,
+    n_val: int = 200,
     seed: int = 42,
 ):
     """
@@ -90,10 +90,13 @@ def build_objective(
             search_space.lr_high,
             log=True,
         )
+        # Batch size et num_epochs : exigés par le protocole (Table 4, énoncé)
+        batch_size = trial.suggest_categorical("batch_size", [8, 16])
+        num_epochs = trial.suggest_int("num_epochs", 2, 4)  # [2,5] limité à 4 sur CPU
 
         logger.info(
-            "\n[Trial #%03d] weight_decay=%.1e | dropout=%.2f | lr=%.2e",
-            trial.number, weight_decay, dropout, lr,
+            "\n[Trial #%03d] weight_decay=%.1e | dropout=%.2f | lr=%.2e | batch=%d | epochs=%d",
+            trial.number, weight_decay, dropout, lr, batch_size, num_epochs,
         )
 
         # ── Chargement du modèle avec le dropout du trial ────────────────
@@ -104,9 +107,9 @@ def build_objective(
             learning_rate=lr,
             weight_decay=weight_decay,
             dropout=dropout,
-            batch_size=16,
+            batch_size=batch_size,
             gradient_accumulation_steps=2,
-            num_epochs=2,                  # Réduit pour accélérer la recherche
+            num_epochs=num_epochs,
             warmup_ratio=0.1,
             early_stopping_patience=2,
             seed=seed + trial.number,      # Seed différente par trial
@@ -353,10 +356,10 @@ def run_grid_search_p02(
     search_space = SearchSpace()
     results = []
 
-    train_ds, val_ds, _ = prepare_datasets(
+    train_ds, val_ds, test_ds = prepare_datasets(
         tokenizer,
-        n_train=250,   # n_per_class
-        n_val=100,
+        n_train=500,   # n_per_class (16 Go RAM)
+        n_val=150,
         seed=seed,
     )
 
@@ -382,17 +385,25 @@ def run_grid_search_p02(
             train_f1 = max(history["train_f1"]) if history["train_f1"] else 0.0
             val_f1 = result["best_val_f1"]
 
+            # Évaluation sur test — protocole P02 : "mesurer l'écart train/test"
+            test_metrics = trainer.evaluate_on_test(test_ds)
+            test_f1 = test_metrics["f1_macro"]
+
             results.append({
                 "weight_decay": wd,
                 "dropout": dp,
                 "train_f1": train_f1,
                 "val_f1": val_f1,
-                "gap": train_f1 - val_f1,
+                "test_f1": test_f1,
+                "gap_train_val": train_f1 - val_f1,
+                "gap_train_test": train_f1 - test_f1,
                 "time_s": result["total_time_s"],
             })
 
-            logger.info("  → F1_train=%.4f | F1_val=%.4f | gap=%.4f",
-                        train_f1, val_f1, train_f1 - val_f1)
+            logger.info(
+                "  → F1_train=%.4f | F1_val=%.4f | F1_test=%.4f | gap_val=%.4f | gap_test=%.4f",
+                train_f1, val_f1, test_f1, train_f1 - val_f1, train_f1 - test_f1,
+            )
 
     df = pd.DataFrame(results)
     df.to_csv(output_dir / "grid_p02_results.csv", index=False)

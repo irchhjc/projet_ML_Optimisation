@@ -174,20 +174,20 @@ def plot_loss_landscape_comparison(
 
 def plot_generalization_heatmap(
     df: pd.DataFrame,
-    metric: str = "gap",
+    metric: str = "gap_train_val",
     save_path: Optional[Path] = None,
 ) -> None:
     """
-    Heatmap de la métrique choisie (gap ou val_f1) en fonction de
+    Heatmap des métriques P02 (gap train/val, gap train/test, F1-val) en fonction de
     weight_decay (lignes) et dropout (colonnes).
     """
     pivot = df.pivot(index="weight_decay", columns="dropout", values=metric)
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    fig, axes = plt.subplots(1, 3, figsize=(18, 5))
 
-    # Heatmap gap (rouge = sur-apprentissage)
+    # Heatmap gap train/val (rouge = sur-apprentissage)
     sns.heatmap(
-        df.pivot(index="weight_decay", columns="dropout", values="gap"),
+        df.pivot(index="weight_decay", columns="dropout", values="gap_train_val"),
         ax=axes[0],
         cmap="Reds",
         annot=True, fmt=".3f",
@@ -195,23 +195,37 @@ def plot_generalization_heatmap(
         xticklabels=[f"{d:.1f}" for d in sorted(df["dropout"].unique())],
         yticklabels=[f"{w:.0e}" for w in sorted(df["weight_decay"].unique())],
     )
-    axes[0].set_title("Gap de généralisation\n(F1_train − F1_val) — plus faible = mieux", fontsize=11)
+    axes[0].set_title("Écart train/val\n(F1_train − F1_val) — plus faible = mieux", fontsize=11)
     axes[0].set_xlabel("Dropout", fontsize=11)
     axes[0].set_ylabel("Weight Decay", fontsize=11)
+
+    # Heatmap gap train/test (protocole P02 : "mesurer l'écart train/test")
+    sns.heatmap(
+        df.pivot(index="weight_decay", columns="dropout", values="gap_train_test"),
+        ax=axes[1],
+        cmap="Oranges",
+        annot=True, fmt=".3f",
+        linewidths=0.5,
+        xticklabels=[f"{d:.1f}" for d in sorted(df["dropout"].unique())],
+        yticklabels=[f"{w:.0e}" for w in sorted(df["weight_decay"].unique())],
+    )
+    axes[1].set_title("Écart train/test\n(F1_train − F1_test) — plus faible = mieux", fontsize=11)
+    axes[1].set_xlabel("Dropout", fontsize=11)
+    axes[1].set_ylabel("Weight Decay", fontsize=11)
 
     # Heatmap F1-val (vert = bon)
     sns.heatmap(
         df.pivot(index="weight_decay", columns="dropout", values="val_f1"),
-        ax=axes[1],
+        ax=axes[2],
         cmap="Greens",
         annot=True, fmt=".3f",
         linewidths=0.5,
         xticklabels=[f"{d:.1f}" for d in sorted(df["dropout"].unique())],
         yticklabels=[f"{w:.0e}" for w in sorted(df["weight_decay"].unique())],
     )
-    axes[1].set_title("F1-score macro (validation)\n— plus élevé = mieux", fontsize=11)
-    axes[1].set_xlabel("Dropout", fontsize=11)
-    axes[1].set_ylabel("Weight Decay", fontsize=11)
+    axes[2].set_title("F1-score macro (validation)\n— plus élevé = mieux", fontsize=11)
+    axes[2].set_xlabel("Dropout", fontsize=11)
+    axes[2].set_ylabel("Weight Decay", fontsize=11)
 
     fig.suptitle(
         "Protocole P02 — Régularisation × Généralisation\n"

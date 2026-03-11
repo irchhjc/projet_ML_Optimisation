@@ -30,6 +30,7 @@ En tant que groupe G10 (CamemBERT × Allociné, problématique P02 - Régularisa
 ```
 g10_camembert/
 ├── pyproject.toml          # Dépendances Poetry
+├── requirements.txt        # Dépendances pip 
 ├── README.md
 ├── src/
 │   ├── __init__.py
@@ -40,12 +41,11 @@ g10_camembert/
 │   ├── optimization.py     # Baseline + étude Optuna + grille P02
 │   ├── visualization.py    # Heatmap P02 + importance des hyperparamètres
 │   ├── loss_landscape_analysis.py # Analyse approfondie du loss landscape 1D
-│   └── metrics.py          # F1, gap train/val, sharpness
+│   └── metrics.py          # F1, gap train/val/test, sharpness
 ├── notebooks/
 │   ├── 01_exploration.ipynb
-│   └── 02_analysis.ipynb
-├── tests/
-│   └── test_data_loader.py
+│   ├── 02_analysis.ipynb
+│   └── G10_Projet_Complet.ipynb
 ├── results/
 │   ├── optuna_study.db     # Base SQLite de l'étude Optuna
 │   ├── optuna_study.pkl    # Étude Optuna sérialisée
@@ -54,16 +54,20 @@ g10_camembert/
 │   ├── grid_p02_results.csv# Résultats grille exhaustive (12 combinaisons)
 │   ├── baseline_metrics.json # Baseline : F1 train/val/test + gaps
 │   ├── checkpoints/        # Meilleurs modèles sauvegardés
-│   └── figures/            # Toutes les figures générées (heatmap, importance, loss landscape, ...)
-└── report/
+│   └── figures/            # Toutes les figures générées
+└── data/
+    └── allocine_raw.json   # Cache local du dataset (hors-ligne)
 ```
 
 ---
 
 ## 🚀 Installation
 
+**Prérequise : Python 3.11 ou supérieur**
+
+### Option A — Poetry (recommandé)
 ```bash
-# Installer Poetry (si nécessaire)
+# Installer Poetry si nécessaire
 curl -sSL https://install.python-poetry.org | python3 -
 
 # Installer les dépendances
@@ -73,13 +77,42 @@ poetry install
 poetry shell
 ```
 
+### Option B — pip
+```bash
+pip install -r requirements.txt
+```
+
 ---
 
 ## ▶️ Exécution
 
+### Lancer le pipeline complet (toutes les étapes d'un coup)
+
+```bash
+poetry run python run_pipeline.py
+```
+
+Cette commande exécute dans l'ordre :
+1. Entraînement baseline + évaluation test
+2. Étude Optuna (30 trials, recherche Bayésienne)
+3. Grille exhaustive P02 (12 combinaisons weight\_decay × dropout)
+4. Génération des visualisations (heatmap, importance des hyperparamètres)
+5. Analyse du loss landscape 1D (sharpness)
+
+Options pour désactiver des étapes :
+```bash
+poetry run python run_pipeline.py --no-baseline --no-grid   # Optuna + landscape seulement
+poetry run python run_pipeline.py --no-optuna               # Tout sauf Optuna
+poetry run python run_pipeline.py --n-trials 30 --seed 42   # Paramètres personnalisés
+```
+
+---
+
+### Étapes individuelles
+
 ### 0. Baseline (O1 / O3)
 
-Depuis la racine du projet, avec l'environnement Poetry activé :
+Depuis la racine du projet :
 
 ```bash
 # Entraînement baseline + évaluation sur test
@@ -98,13 +131,13 @@ Depuis la racine du projet, avec l'environnement Poetry activé :
 
 ```bash
 # Étude Optuna seule (recherche Bayésienne)
-poetry run run-optimization --mode optuna --n-trials 20 --output results
+poetry run run-optimization --mode optuna --n-trials 30 --output results
 
 # Grille déterministe seule (12 combinaisons weight_decay × dropout)
 poetry run run-optimization --mode grid --output results
 
 # Optuna + grille (pour avoir à la fois best_params et grid_p02_results.csv)
-poetry run run-optimization --mode both --n-trials 20 --output results
+poetry run run-optimization --mode both --n-trials 30 --output results
 ```
 
 Les artefacts principaux sont écrits dans `results/` :
@@ -155,37 +188,37 @@ poetry run jupyter notebook notebooks/
 
 ---
 
-## 🧪 Tests
-```bash
-poetry run pytest tests/ -v --cov=src
-```
+## ⚙️ Adaptation CPU (16 Go RAM)
 
-Remarque : les tests unitaires couvrent principalement la préparation des données (sous-échantillonnage équilibré, dataset PyTorch) et les métriques (F1-score, gap de généralisation, sharpness). La boucle d'entraînement complète (CamembertTrainer) et l'étude Optuna ne sont pas testées automatiquement : elles sont validées via des tests manuels et l'analyse expérimentale des résultats (courbes de convergence, heatmaps, dashboard Optuna, etc.).
-
----
-
-## ⚙️ Adaptation CPU
-
-Le projet est entièrement conçu pour fonctionner **sans GPU** :
-- Sous-échantillonnage équilibré (500 train / 200 val / 200 test par classe par défaut)
-- `gradient_accumulation_steps` pour simuler des grands batch sizes
+Le projet est conçu pour fonctionner **sans GPU** selon les recommandations de l'énoncé :
+- Sous-échantillonnage équilibré (1 000 train / 300 val / 300 test par classe)
+- `MAX_SEQ_LENGTH = 384` (safe à 16 Go RAM)
+- `gradient_accumulation_steps = 2` pour simuler batch effectif de 32
 - Quantification dynamique disponible (`src/model_setup.py`)
-- Loss landscape 1D léger (8 points, ε = 0.05)
+- Loss landscape 1D léger (12 points, ε = 0.05)
 - Early stopping pour limiter le temps de calcul
-- Chargement du dataset Allociné **une seule fois en mémoire** dans `src/data_loader.py` (cache interne + cache HuggingFace sur disque)
+- Chargement du dataset Allociné **une seule fois en mémoire** avec cache JSON local (`data/allocine_raw.json`)
+- 8 threads CPU activés automatiquement (`torch.set_num_threads(8)`)
 
 ---
 
 ## 📊 Résultats attendus
 
-Le protocole étudie un **grid search** via Optuna sur :
+Protocole P02 — grid search sur :
 - `weight_decay` = {1e-5, 1e-4, 1e-3, 1e-2}
 - `dropout` = {0.0, 0.1, 0.3}
-- → 12 combinaisons + exploration Bayésienne
+- → 12 combinaisons + exploration Bayésienne Optuna (30 trials)
+
+**Hyperparamètres optimisés par Optuna (Table 4 énoncé) :**
+- Learning rate : [1×10⁻⁶, 5×10⁻⁴] (log-scale)
+- Weight decay : {1e-5, 1e-4, 1e-3, 1e-2}
+- Dropout : {0.0, 0.1, 0.3}
+- Batch size : {8, 16}
+- Nombre d'époques : [2, 4]
 
 **Métriques rapportées :**
 - F1-score macro train / validation / test
-- Gaps de généralisation : F1_train − F1_val et F1_train − F1_test
+- Écart train/val et **écart train/test** (protocole P02)
 - Accuracy (complémentaire au F1)
 - Sharpness du minimum (analyse loss landscape)
 

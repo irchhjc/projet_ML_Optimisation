@@ -38,8 +38,8 @@ def get_device() -> torch.device:
         logger.info("GPU détecté : %s", torch.cuda.get_device_name(0))
     else:
         device = torch.device("cpu")
-        # Optimisation multi-threading CPU
-        torch.set_num_threads(4)
+        # Optimisation multi-threading CPU (16 Go RAM → plus de threads)
+        torch.set_num_threads(8)
         logger.info("Exécution sur CPU (%d threads)", torch.get_num_threads())
     return device
 

@@ -32,11 +32,11 @@ LABEL_COLUMN = "label"
 NUM_LABELS = 2
 LABEL_NAMES = ["négatif", "positif"]
 
-# Sous-ensembles pour CPU (équilibrés par classe)
-N_TRAIN_PER_CLASS = 500            # → 1 000 exemples train total
-N_VAL_PER_CLASS = 200             # → 400 exemples val total
-N_TEST_PER_CLASS = 200             # → 400   exemples test total
-MAX_SEQ_LENGTH = 256               # Truncation mémoire-safe
+# Sous-ensembles adaptés à 16 Go RAM / CPU
+N_TRAIN_PER_CLASS = 1000           # → 2 000 exemples train total
+N_VAL_PER_CLASS = 300              # → 600 exemples val total
+N_TEST_PER_CLASS = 300             # → 600 exemples test total
+MAX_SEQ_LENGTH = 384               # Plus de contexte (16 Go RAM safe)
 
 
 # ---------------------------------------------------------------------------
@@ -57,7 +57,7 @@ class BaselineConfig:
     dropout: float = 0.1
     batch_size: int = 16
     gradient_accumulation_steps: int = 2   # batch effectif = 32
-    num_epochs: int = 3
+    num_epochs: int = 4                    # +1 époque grâce aux 16 Go RAM
     warmup_ratio: float = 0.1
     max_steps: int = -1                    # -1 = utiliser num_epochs
     seed: int = 42
@@ -90,15 +90,15 @@ class SearchSpace:
 # ---------------------------------------------------------------------------
 @dataclass
 class LandscapeConfig:
-    n_points: int = 8          # Nombre de points sur la grille 1D
+    n_points: int = 12         # Grille plus fine (16 Go RAM)
     epsilon: float = 0.05      # Amplitude de la perturbation
-    n_samples_eval: int = 50   # Sous-ensemble pour l'évaluation rapide
+    n_samples_eval: int = 100  # Plus d'exemples pour une évaluation fiable
 
 
 # ---------------------------------------------------------------------------
 # Optuna
 # ---------------------------------------------------------------------------
-OPTUNA_N_TRIALS = 20
+OPTUNA_N_TRIALS = 30  # Plus de trials grâce aux 16 Go RAM
 OPTUNA_STUDY_NAME = "g10_p02_regularisation"
 OPTUNA_DIRECTION = "maximize"   # On maximise le F1-score macro
 OPTUNA_DB = str(RESULTS_DIR / "optuna_study.db") # pour pouvoir utiliser optuna-dashboard

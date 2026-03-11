@@ -124,7 +124,7 @@ def _train_and_compute_landscape(
         device=device,
         cfg=landscape_cfg,
     )
-    return cfg.label, (alphas, losses)
+    return cfg.label, (alphas, losses), float(result["best_val_f1"])
 
 
 def main() -> None:
@@ -137,12 +137,12 @@ def main() -> None:
     device = get_device()
     tokenizer = load_tokenizer()
 
-    # Dataset réduit pour que l'analyse reste abordable sur CPU
+    # Dataset adapté à 16 Go RAM / CPU
     train_ds, val_ds, _ = prepare_datasets(
         tokenizer,
-        n_train=200,  # par classe
-        n_val=100,
-        n_test=50,
+        n_train=350,  # par classe (16 Go RAM)
+        n_val=150,
+        n_test=100,
         seed=42,
     )
 
@@ -180,8 +180,9 @@ def main() -> None:
     landscape_cfg = LandscapeConfig()
 
     results: Dict[str, Tuple] = {}
+    val_f1s: Dict[str, float] = {}
     for cfg in configs:
-        label, curve = _train_and_compute_landscape(
+        label, curve, val_f1 = _train_and_compute_landscape(
             cfg,
             tokenizer=tokenizer,
             device=device,
@@ -190,6 +191,7 @@ def main() -> None:
             landscape_cfg=landscape_cfg,
         )
         results[label] = curve
+        val_f1s[label] = val_f1
 
     FIGURES_DIR.mkdir(parents=True, exist_ok=True)
     sharpnesses = plot_loss_landscape_comparison(results, save_path=FIGURES_DIR)
@@ -198,6 +200,17 @@ def main() -> None:
     logger.info("Sharpness par configuration :")
     for label, sharp in sharpnesses.items():
         logger.info("  %-40s  %.6f", label, sharp)
+
+    # Sauvegarde pour plot_sharpness_vs_f1 dans run_pipeline.py
+    import json
+    sharpness_list = [
+        {"label": label, "sharpness": sharp, "val_f1": val_f1s.get(label, 0.0)}
+        for label, sharp in sharpnesses.items()
+    ]
+    sharpness_path = FIGURES_DIR / "sharpness_data.json"
+    with open(sharpness_path, "w", encoding="utf-8") as fh:
+        json.dump(sharpness_list, fh, indent=2, ensure_ascii=False)
+    logger.info("sharpness_data.json sauvegardé : %s", sharpness_path)
 
 
 if __name__ == "__main__":
