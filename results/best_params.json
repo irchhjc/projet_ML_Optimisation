@@ -1,0 +1,9 @@
+{
+  "best_value": 0.9532814238042269,
+  "best_params": {
+    "weight_decay": 0.0001,
+    "dropout": 0.0,
+    "learning_rate": 0.00021766241123453658
+  },
+  "best_trial_number": 0
+}

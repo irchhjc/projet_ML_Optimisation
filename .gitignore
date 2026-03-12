@@ -1,53 +1,115 @@
-###############################
-# Python / Data Science / ML  #
-###############################
+########################################################
+# .gitignore — G10 CamemBERT Régularisation (P02)
+# Stack : Python 3.11 · Poetry · PyTorch · HuggingFace
+#         Optuna · Pandas · Matplotlib · VS Code
+########################################################
 
-# --- Environnements virtuels ---
+
+# ── Environnements virtuels ────────────────────────────
 .venv/
 venv/
 env/
 .env/
-.venv/
 
-# --- Fichiers Python générés ---
+
+# ── Secrets & variables d'environnement ───────────────
+.env
+.env.*
+!.env.example
+
+
+# ── Python — bytecode & build ──────────────────────────
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
+dist/
+build/
+*.egg-info/
+*.egg
+.eggs/
 
-# --- Notebooks ---
+
+# ── Notebooks ─────────────────────────────────────────
 .ipynb_checkpoints/
 
-# --- Logs & debug ---
-logs/
-*.log
 
-# --- Cache & artefacts de tests ---
+# ── Outils de développement ───────────────────────────
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.black_cache/
 .coverage
 coverage.xml
+htmlcov/
+*.prof
 
-# --- Artefacts de ML / résultats ---
-# On ignore tout dans results/ sauf l'étude Optuna principale
-results/*
-!results/optuna_study.db
-results/checkpoints/
-results/figures/
 
-# Si tu veux versionner d'autres résultats finaux, ajoute des exceptions avec "!"
+# ── Logs ──────────────────────────────────────────────
+logs/
+*.log
 
-# --- Données locales (brutes / intermédiaires) ---
+
+# ── Données (datasets potentiellement volumineux) ─────
 data/
 datasets/
 
-# --- IDE / OS ---
+
+# ── Cache HuggingFace / Transformers / Datasets ───────
+.cache/
+~/.cache/huggingface/
+huggingface_cache/
+hf_cache/
+
+
+# ── Résultats — fichiers lourds ou générés ─────────────
+# Checkpoints modèles (PyTorch)
+results/checkpoints/
+*.pt
+*.pth
+*.bin
+*.safetensors
+
+# Figures (régénérables via src/visualization.py)
+results/figures/
+
+# Fichiers binaires Optuna (SQLite + pickle)
+results/*.db
+results/*.pkl
+
+# Fichiers temporaires d'export
+results/*.zip
+results/*.tar.gz
+
+# On versionne les résultats légers et exploitables :
+# results/baseline_metrics.json  ✔
+# results/best_params.json        ✔
+# results/optuna_trials.csv       ✔
+
+
+# ── OS ────────────────────────────────────────────────
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+
+# ── IDE ───────────────────────────────────────────────
 .vscode/
 .idea/
 *.code-workspace
 *.iml
-
-.DS_Store
+*.suo
+*.user
+*.sublime-project
+*.sublime-workspace
 Thumbs.db
 formation_pytorch.py
 # --- Divers ---
