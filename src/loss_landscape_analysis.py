@@ -28,7 +28,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Tuple
 
+import numpy as np
 import torch
+from torch.utils.data import DataLoader, Subset
 
 from src.config import (
     BaselineConfig,
@@ -40,6 +42,79 @@ from src.data_loader import prepare_datasets
 from src.model_setup import get_device, load_model, load_tokenizer
 from src.trainer import CamembertTrainer, TrainConfig
 from src.visualization import compute_loss_landscape_1d, plot_loss_landscape_comparison
+
+
+# ---------------------------------------------------------------------------
+# Version allégée pour CPU (Section 6.1 du rapport)
+# ---------------------------------------------------------------------------
+
+def evaluate_on_subset(
+    model: torch.nn.Module,
+    dataset,
+    device: torch.device,
+    n_samples: int = 50,
+) -> float:
+    """Évalue la loss moyenne sur un sous-ensemble de `n_samples` exemples."""
+    indices = list(range(min(n_samples, len(dataset))))
+    subset = Subset(dataset, indices)
+    loader = DataLoader(subset, batch_size=16, shuffle=False)
+    losses = []
+    model.eval()
+    with torch.no_grad():
+        for batch in loader:
+            batch = {k: v.to(device) for k, v in batch.items()}
+            outputs = model(**batch)
+            losses.append(outputs.loss.item())
+    return float(np.mean(losses)) if losses else float("nan")
+
+
+def compute_loss_landscape_light(
+    model: torch.nn.Module,
+    dataset,
+    device: torch.device,
+    n_points: int = 8,
+    epsilon: float = 0.05,
+) -> tuple[np.ndarray, list[float]]:
+    """
+    Version légère du loss landscape 1D pour CPU.
+
+    Différences avec compute_loss_landscape_1d :
+      - Normalisation globale (une seule norme sur tous les paramètres)
+        au lieu de la filter normalization (Li et al. 2018)
+      - Évaluation sur seulement 50 exemples (evaluate_on_subset)
+      - Grille réduite à n_points=8 par défaut
+
+    Algorithme :
+      1. Sauvegarder θ*
+      2. Direction aléatoire normalisée globalement
+      3. Évaluer L(θ* + α·d) pour α ∈ [-ε, +ε]
+      4. Restaurer θ*
+    """
+    model.eval()
+    original_params = [p.clone().detach() for p in model.parameters()]
+
+    # Direction aléatoire normalisée (normalisation globale)
+    direction = [torch.randn_like(p) for p in original_params]
+    total_norm = sum(d.norm().item() for d in direction)
+    if total_norm > 0:
+        direction = [d / total_norm for d in direction]
+
+    alphas = np.linspace(-epsilon, epsilon, n_points)
+    losses = []
+
+    for alpha in alphas:
+        # Appliquer la perturbation
+        for p, p0, d in zip(model.parameters(), original_params, direction):
+            p.data = p0 + float(alpha) * d.to(p0.device)
+
+        loss = evaluate_on_subset(model, dataset, device, n_samples=50)
+        losses.append(loss)
+
+    # Restaurer θ*
+    for p, p0 in zip(model.parameters(), original_params):
+        p.data = p0.to(p.device)
+
+    return alphas, losses
 
 logger = logging.getLogger(__name__)
 
@@ -118,12 +193,24 @@ def _train_and_compute_landscape(
     result = trainer.train()
     logger.info("F1-val (config '%s') = %.4f", cfg.label, result["best_val_f1"])
 
-    alphas, losses = compute_loss_landscape_1d(
-        model=model,
-        dataset=val_ds,
-        device=device,
-        cfg=landscape_cfg,
-    )
+    # Sur CPU : version légère (normalisation globale, 50 samples)
+    # Sur GPU : version complète avec filter normalization (Li et al. 2018)
+    if device.type == "cpu":
+        logger.info("CPU détecté → compute_loss_landscape_light (n_points=8, n_samples=50)")
+        alphas, losses = compute_loss_landscape_light(
+            model=model,
+            dataset=val_ds,
+            device=device,
+            n_points=landscape_cfg.n_points,
+            epsilon=landscape_cfg.epsilon,
+        )
+    else:
+        alphas, losses = compute_loss_landscape_1d(
+            model=model,
+            dataset=val_ds,
+            device=device,
+            cfg=landscape_cfg,
+        )
     return cfg.label, (alphas, losses), float(result["best_val_f1"])
 
 
