@@ -33,10 +33,10 @@ NUM_LABELS = 2
 LABEL_NAMES = ["négatif", "positif"]
 
 # Sous-ensembles adaptés à 16 Go RAM / CPU
-N_TRAIN_PER_CLASS = 800            # → 1 600 exemples train total
-N_VAL_PER_CLASS = 250              # → 500 exemples val total
-N_TEST_PER_CLASS = 250             # → 500 exemples test total
-MAX_SEQ_LENGTH = 128               # 128 tokens : suffisant pour la polarité ; 9× plus rapide que 384 (attention O(n²))
+N_TRAIN_PER_CLASS = 500            
+N_VAL_PER_CLASS = 200              
+N_TEST_PER_CLASS = 200            
+MAX_SEQ_LENGTH = 128               
 
 
 # ---------------------------------------------------------------------------
