@@ -9,8 +9,287 @@
 | Dataset | D05 - Allociné (100k critiques FR, 2 classes) |
 | Modèle | M04 - CamemBERT-base (110M paramètres) |
 | Problématique | P02 - Régularisation et Généralisation |
-| Méthode d'optimisation | Optuna (Bayésien) |
-| Métrique principale | F1-score (macro) |
+| Méthode d'optimisation | Optuna (TPE Bayésien) |
+| Métrique principale | F1-score macro |
+
+---
+
+## Objectifs du projet
+
+- **O1 - Baseline** : fine-tuner CamemBERT et établir des scores F1 macro train / val / test de référence.
+- **O2 - Impact de la régularisation** : mesurer comment weight decay et dropout affectent le F1 macro et l'accuracy.
+- **O3 - Généralisation** : analyser les gaps $F1_{\text{train}} - F1_{\text{val}}$ et $F1_{\text{train}} - F1_{\text{test}}$ pour différentes configurations.
+- **O4 - Loss landscape** : comparer la sharpness des minima (plat vs pointu) et relier platitude ↔ généralisation.
+- **O5 - Optimisation sous contrainte CPU** : utiliser Optuna (TPE) + grille réduite sans GPU.
+- **O6 - Recommandations** : proposer un réglage optimal de régularisation pour CamemBERT sur Allociné.
+
+---
+
+## Structure du projet
+
+```
+projet_ML_Optimisation/
+├── pyproject.toml                   # Dépendances et scripts Poetry
+├── requirements.txt                 # Dépendances pip (alternative)
+├── run_pipeline.py                  # Pipeline complet (toutes étapes en une commande)
+├── src/
+│   ├── config.py                    # Hyperparamètres, chemins, constantes
+│   ├── data_loader.py               # Chargement et sous-échantillonnage Allociné
+│   ├── model_setup.py               # Initialisation CamemBERT avec dropout configurable
+│   ├── trainer.py                   # Boucle d'entraînement custom + early stopping
+│   ├── optimization.py              # Baseline + étude Optuna + grille P02
+│   ├── metrics.py                   # F1, accuracy, gap train/val/test, sharpness
+│   ├── visualization.py             # Toutes les figures (heatmap, courbes, Optuna, sharpness)
+│   └── loss_landscape_analysis.py   # Analyse loss landscape 1D (sharpness par config)
+├── notebooks/
+│   ├── 01_exploration.ipynb
+│   ├── 02_analysis.ipynb
+│   └── G10_Projet_Complet.ipynb
+├── results/                         # Artefacts générés (versionnés sauf binaires)
+│   ├── baseline_metrics.json        # F1 train/val/test + gaps + historique baseline
+│   ├── best_params.json             # Meilleure config trouvée par Optuna
+│   ├── optuna_trials.csv            # Historique détaillé des trials Optuna
+│   ├── optuna_study.db              # Base SQLite Optuna (ignorée par git)
+│   ├── optuna_study.pkl             # Étude Optuna sérialisée (ignorée par git)
+│   ├── checkpoints/                 # Poids des modèles (ignorés par git)
+│   └── figures/                     # Figures PNG générées (ignorées par git)
+└── data/
+    └── allocine_raw.json            # Cache local du dataset (ignoré par git)
+```
+
+---
+
+## Installation
+
+**Prérequis : Python 3.11 ou supérieur**
+
+### Option A — Poetry (recommandé)
+
+```bash
+# 1. Installer Poetry si nécessaire (une seule fois)
+curl -sSL https://install.python-poetry.org | python3 -
+# Windows PowerShell :
+# (Invoke-WebRequest -Uri https://install.python-poetry.org -UseBasicParsing).Content | python -
+
+# 2. Installer le projet et ses dépendances
+poetry install
+
+# 3. (Optionnel) Activer le shell Poetry
+poetry shell
+```
+
+> **Important :** `poetry install` est obligatoire (pas seulement `poetry install --no-root`).
+> Il installe le package `src/` et enregistre les scripts `run-optimization`, `run-landscape`, `run-landscape-loss`.
+
+### Option B — pip
+
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## Exécution
+
+### Option 1 — Pipeline complet (recommandé)
+
+Lance toutes les étapes dans l'ordre en une seule commande :
+
+```bash
+poetry run python run_pipeline.py
+```
+
+Étapes exécutées :
+
+| # | Étape | Durée estimée CPU |
+|---|-------|-------------------|
+| 1 | Entraînement baseline + évaluation test | ~1 h 15 |
+| 2 | Étude Optuna (15 trials par défaut) | ~5 h |
+| 3 | Grille P02 (12 combinaisons weight_decay × dropout) | ~5 h |
+| 4 | Visualisations (heatmap, courbes, scatter, Optuna) | < 1 min |
+| 5 | Analyse loss landscape 1D (4 configs × 8 points) | ~3 h |
+
+**Options disponibles :**
+
+```bash
+# Désactiver des étapes
+poetry run python run_pipeline.py --no-baseline      # Ignore l'étape baseline
+poetry run python run_pipeline.py --no-optuna        # Ignore l'étude Optuna
+poetry run python run_pipeline.py --no-grid          # Ignore la grille P02
+poetry run python run_pipeline.py --no-viz           # Ignore les visualisations
+poetry run python run_pipeline.py --no-landscape     # Ignore le loss landscape
+
+# Combinaisons fréquentes
+poetry run python run_pipeline.py --no-optuna --no-grid   # Baseline + viz + landscape uniquement
+poetry run python run_pipeline.py --no-baseline --no-grid # Optuna + viz + landscape uniquement
+
+# Paramètres
+poetry run python run_pipeline.py --n-trials 30 --seed 42
+
+# Mode rapide (débogage) : dataset réduit, 2 époques, 5 trials Optuna
+poetry run python run_pipeline.py --fast
+```
+
+---
+
+### Option 2 — Étapes individuelles
+
+#### Étape 0 — Baseline (O1 / O3)
+
+```bash
+poetry run run-optimization --mode baseline --output results
+```
+
+Produit : `results/baseline_metrics.json`
+Contient : F1 train / val / test, accuracy, gaps de généralisation, historique d'entraînement par époque.
+
+---
+
+#### Étape 1 — Optimisation Optuna (O5)
+
+```bash
+# Recherche Bayésienne seule
+poetry run run-optimization --mode optuna --n-trials 15 --output results
+
+# Grille déterministe seule (12 combinaisons weight_decay × dropout)
+poetry run run-optimization --mode grid --output results
+
+# Les deux à la fois
+poetry run run-optimization --mode both --n-trials 15 --output results
+```
+
+Produit :
+- `results/best_params.json` — meilleure configuration Optuna
+- `results/optuna_trials.csv` — historique de tous les trials
+- `results/optuna_study.pkl` + `results/optuna_study.db` — étude complète
+- `results/grid_p02_results.csv` — résultats grille (si `mode=grid` ou `both`)
+
+---
+
+#### Étape 2 — Visualisations (O2 / O3 / O4)
+
+```bash
+# Génère automatiquement toutes les figures disponibles :
+# convergence_curves.png, optuna_importance.png, optuna_history.png,
+# optuna_parallel.png, sharpness_vs_f1.png
+poetry run run-landscape --study results/optuna_study.pkl
+
+# Ajouter la heatmap (nécessite grid_p02_results.csv)
+poetry run run-landscape \
+    --study results/optuna_study.pkl \
+    --grid-csv results/grid_p02_results.csv
+```
+
+Toutes les figures sont sauvegardées dans `results/figures/`.
+
+| Figure | Description |
+|--------|-------------|
+| `convergence_curves.png` | F1 et loss train/val par époque |
+| `optuna_importance.png` | Importance des hyperparamètres (Optuna) |
+| `optuna_history.png` | Progression du F1-val à travers les trials |
+| `optuna_parallel.png` | Coordonnées parallèles des hyperparamètres |
+| `sharpness_vs_f1.png` | Scatter proxy-sharpness ↔ F1-val (depuis `optuna_trials.csv`) |
+| `heatmap_p02.png` | Heatmap gap train/val, gap train/test, F1-val (nécessite grille) |
+
+---
+
+#### Étape 3 — Analyse loss landscape 1D (O4)
+
+```bash
+poetry run run-landscape-loss
+```
+
+Ce script :
+1. Entraîne 3 configurations (sous-régularisé, baseline, fortement régularisé) + optionnellement la meilleure config Optuna sur ~350 exemples/classe, 2 époques.
+2. Perturbe les poids de chaque modèle dans une direction aléatoire et mesure la loss sur 8 points (`α ∈ [-0.05, +0.05]`).
+3. Sur CPU, utilise `compute_loss_landscape_light` (50 exemples, normalisation globale) ; sur GPU, utilise la filter normalization complète (Li et al. 2018).
+
+Produit :
+- `results/figures/loss_landscape_1d.png` — comparaison courbes + sharpness en légende
+- `results/figures/sharpness_data.json` — données `{label, sharpness, val_f1}` réutilisables
+
+---
+
+#### Étape 4 — Dashboard Optuna (optionnel)
+
+```bash
+pip install optuna-dashboard
+optuna-dashboard sqlite:///results/optuna_study.db
+```
+
+Interface web interactive pour explorer tous les trials Optuna.
+
+---
+
+#### Étape 5 — Notebooks
+
+```bash
+poetry run jupyter notebook notebooks/
+```
+
+---
+
+## Adaptation CPU (16 Go RAM)
+
+Le projet est optimisé pour fonctionner **sans GPU** :
+
+| Optimisation | Détail |
+|---|---|
+| Sous-échantillonnage équilibré | 800 train / 250 val / 250 exemples par classe |
+| Séquence courte | `MAX_SEQ_LENGTH = 128` (au lieu de 512) |
+| Accumulation de gradient | `gradient_accumulation_steps = 2` → batch effectif 32 |
+| Early stopping | Arrêt anticipé si pas d'amélioration pendant 2 époques |
+| Loss landscape léger | 8 points, 50 exemples/évaluation |
+| Cache dataset | `data/allocine_raw.json` évite le re-téléchargement |
+| Multi-threading | `torch.set_num_threads(8)` activé automatiquement |
+
+---
+
+## Résultats obtenus
+
+**Baseline :**
+
+| Métrique | Valeur |
+|---|---|
+| F1 macro train | 0.9387 |
+| F1 macro val | 0.9180 |
+| F1 macro test | 0.9260 |
+| Gap train/val | 0.0208 (2.21 %) |
+| Gap train/test | 0.0128 (1.36 %) |
+
+**Meilleure configuration Optuna :**
+
+| Hyperparamètre | Valeur |
+|---|---|
+| weight_decay | 1e-4 |
+| dropout | 0.0 |
+| learning_rate | 2.18e-4 |
+| F1 val (meilleur trial) | 0.9533 |
+
+---
+
+## Métriques et figures produites
+
+- F1-score macro train / validation / test
+- Accuracy
+- Gap de généralisation train/val et train/test
+- Sharpness du minimum (loss landscape 1D)
+- Courbes de convergence par époque
+- Heatmap régularisation × généralisation
+- Importance des hyperparamètres Optuna
+
+---
+
+## Contact
+
+**Auteurs :**
+- NGOULOU NGOUBILI Irch Defluviaire — ngoubiliirch@gmail.com
+- MOYO Guillaine
+- DOMEVENOU Wisdom
+
+**Encadrant :** mbialaura12@gmail.com
+
+Soumission : Rapport PDF + lien GitHub par mail — **Date limite : 13 mars 2026**
 
 ---
 

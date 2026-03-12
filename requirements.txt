@@ -1,5 +1,16 @@
-torch>=2.2.0
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch>=2.6.0
+torchvision>=0.21.0
 transformers>=4.40.0
+datasets>=2.19.0
+optuna>=3.6.0
+scikit-learn>=1.4.0
+numpy>=1.26.0,<2.0
+pandas>=2.2.0,<2.3
+matplotlib>=3.8.0
+seaborn>=0.13.0
+tqdm>=4.66.0
+sentencepiece>=0.2.0
 datasets>=2.19.0
 optuna>=3.6.0
 scikit-learn>=1.4.0
