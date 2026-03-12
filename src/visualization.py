@@ -319,6 +319,48 @@ def plot_optuna_importance(
 
 
 # ---------------------------------------------------------------------------
+# Optuna — Historique d'optimisation
+# ---------------------------------------------------------------------------
+
+def plot_optuna_history(
+    study,
+    save_path: Optional[Path] = None,
+) -> None:
+    """Trace l'historique des valeurs objectives à travers les trials Optuna."""
+    try:
+        from optuna.visualization.matplotlib import plot_optimization_history
+
+        ax = plot_optimization_history(study)
+        fig = ax.figure
+        ax.set_title("Historique d'optimisation Optuna", fontsize=12)
+        fig.tight_layout()
+        _save_or_show(fig, save_path, "optuna_history.png")
+    except Exception as e:
+        logger.warning("Impossible de tracer l'historique Optuna : %s", e)
+
+
+# ---------------------------------------------------------------------------
+# Optuna — Coordonnées parallèles
+# ---------------------------------------------------------------------------
+
+def plot_optuna_parallel(
+    study,
+    save_path: Optional[Path] = None,
+) -> None:
+    """Trace les coordonnées parallèles des hyperparamètres Optuna."""
+    try:
+        from optuna.visualization.matplotlib import plot_parallel_coordinate
+
+        ax = plot_parallel_coordinate(study)
+        fig = ax.figure
+        ax.set_title("Coordonnées parallèles — hyperparamètres Optuna", fontsize=12)
+        fig.tight_layout()
+        _save_or_show(fig, save_path, "optuna_parallel.png")
+    except Exception as e:
+        logger.warning("Impossible de tracer les coordonnées parallèles : %s", e)
+
+
+# ---------------------------------------------------------------------------
 # 5. Scatter sharpness vs F1-val
 # ---------------------------------------------------------------------------
 
@@ -390,21 +432,61 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="G10 — Visualisations P02")
     parser.add_argument("--output", type=str, default=str(FIGURES_DIR))
     parser.add_argument("--study", type=str, help="Chemin vers optuna_study.pkl")
+    parser.add_argument(
+        "--metrics",
+        type=str,
+        default=str(RESULTS_DIR / "baseline_metrics.json"),
+        help="Chemin vers baseline_metrics.json (courbes de convergence)",
+    )
     parser.add_argument("--grid-csv", type=str, help="Chemin vers grid_p02_results.csv")
+    parser.add_argument(
+        "--sharpness-json",
+        type=str,
+        help="Chemin vers un fichier JSON contenant [{sharpness, val_f1, label}, ...]",
+    )
     args = parser.parse_args()
 
     output = Path(args.output)
 
-    # Heatmap depuis les résultats de la grille
+    # --- Courbes de convergence depuis baseline_metrics.json ---
+    metrics_path = Path(args.metrics)
+    if metrics_path.exists():
+        with open(metrics_path) as f:
+            metrics = json.load(f)
+        if "history" in metrics:
+            label = metrics_path.stem.replace("_metrics", "").replace("_", " ").title()
+            plot_convergence_curves({label: metrics["history"]}, save_path=output)
+        else:
+            logger.warning("Aucune clé 'history' dans %s — courbes de convergence ignorées", metrics_path)
+    else:
+        logger.warning("Fichier métriques introuvable : %s", metrics_path)
+
+    # --- Heatmap depuis les résultats de la grille ---
     if args.grid_csv:
         df = pd.read_csv(args.grid_csv)
         plot_generalization_heatmap(df, save_path=output)
 
-    # Importance des hyperparamètres depuis l'étude Optuna
+    # --- Figures Optuna (importance, historique, coordonnées parallèles) ---
     if args.study:
-        with open(args.study, "rb") as f:
-            study = pickle.load(f)
-        plot_optuna_importance(study, save_path=output)
+        study_path = Path(args.study)
+        if not study_path.exists():
+            logger.warning("Fichier étude Optuna introuvable : %s", study_path)
+        else:
+            with open(study_path, "rb") as f:
+                study = pickle.load(f)
+            plot_optuna_importance(study, save_path=output)
+            plot_optuna_history(study, save_path=output)
+            plot_optuna_parallel(study, save_path=output)
+
+    # --- Scatter sharpness vs F1 ---
+    if args.sharpness_json:
+        sharpness_path = Path(args.sharpness_json)
+        if sharpness_path.exists():
+            with open(sharpness_path) as f:
+                sharpness_data = json.load(f)
+            plot_sharpness_vs_f1(sharpness_data, save_path=output)
+        else:
+            logger.warning("Fichier sharpness introuvable : %s", sharpness_path)
 
     logger.info("Visualisations terminées. Figures dans : %s", output)
 

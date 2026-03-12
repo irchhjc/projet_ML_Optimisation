@@ -7,7 +7,7 @@
 venv/
 env/
 .env/
-.ml_opt/
+.venv/
 
 # --- Fichiers Python générés ---
 __pycache__/
