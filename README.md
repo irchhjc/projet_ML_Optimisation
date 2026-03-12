@@ -1,6 +1,6 @@
 # G10 - CamemBERT × Allociné : Régularisation & Généralisation
 
-## 🎯 Problématique (P02)
+## Problématique (P02)
 
 > **Comment le weight decay et le dropout affectent-ils la généralisation de CamemBERT sur les critiques de films en français ?**
 
@@ -14,7 +14,7 @@
 
 ---
 
-## 🎓 Objectifs du projet
+## Objectifs du projet
 
 En tant que groupe G10 (CamemBERT × Allociné, problématique P02 - Régularisation et Généralisation), le projet poursuit les objectifs expérimentaux suivants :
 
@@ -25,7 +25,7 @@ En tant que groupe G10 (CamemBERT × Allociné, problématique P02 - Régularisa
 - **O5 - Optimisation d'hyperparamètres sous contrainte CPU** : utiliser Optuna (TPE) et une grille réduite pour explorer l'espace (weight decay × dropout × learning rate) sans GPU.
 - **O6 - Recommandations pratiques** : proposer des réglages de régularisation pour CamemBERT sur Allociné qui offrent un bon compromis performance / généralisation / temps de calcul.
 
-## 📂 Structure du projet
+## Structure du projet
 
 ```
 g10_camembert/
