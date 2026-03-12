@@ -63,29 +63,30 @@ huggingface_cache/
 hf_cache/
 
 
-# ── Résultats — fichiers lourds ou générés ─────────────
-# Checkpoints modèles (PyTorch)
-results/checkpoints/
+# ── Résultats — fichiers lourds exclus, tout le reste versionné ───────────
+
+# Poids de modèles PyTorch (potentiellement > 1 Go)
 *.pt
 *.pth
 *.bin
 *.safetensors
+results/checkpoints/
 
-# Figures (régénérables via src/visualization.py)
-results/figures/
-
-# Fichiers binaires Optuna (SQLite + pickle)
+# Fichiers binaires Optuna (non-texte, non-diffable)
 results/*.db
 results/*.pkl
 
-# Fichiers temporaires d'export
+# Figures (régénérables via `poetry run run-landscape`)
+results/figures/
+
+# Archives temporaires
 results/*.zip
 results/*.tar.gz
 
-# On versionne les résultats légers et exploitables :
-# results/baseline_metrics.json  ✔
-# results/best_params.json        ✔
-# results/optuna_trials.csv       ✔
+# Tout le reste dans results/ est versionné :
+#   results/baseline_metrics.json  ✔
+#   results/best_params.json        ✔
+#   results/optuna_trials.csv       ✔
 
 
 # ── OS ────────────────────────────────────────────────

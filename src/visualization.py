@@ -367,6 +367,7 @@ def plot_optuna_parallel(
 def plot_sharpness_vs_f1(
     sharpness_data: list[dict],
     save_path: Optional[Path] = None,
+    xlabel: str = "Sharpness du minimum",
 ) -> None:
     """
     Scatter plot : sharpness du minimum vs F1-score sur la validation.
@@ -375,6 +376,7 @@ def plot_sharpness_vs_f1(
     Parameters
     ----------
     sharpness_data : liste de dicts avec keys 'sharpness', 'val_f1', 'label'
+    xlabel : libellé de l'axe X (permet d'utiliser un proxy différent)
     """
     fig, ax = plt.subplots(figsize=(8, 5))
 
@@ -383,11 +385,11 @@ def plot_sharpness_vs_f1(
     labels = [d["label"] for d in sharpness_data]
     colors_mapped = [PALETTE[i % len(PALETTE)] for i in range(len(sharpness_data))]
 
-    scatter = ax.scatter(sharpnesses, f1s, c=colors_mapped, s=120, zorder=5,
-                         edgecolors="white", linewidths=1.5)
+    ax.scatter(sharpnesses, f1s, c=colors_mapped, s=120, zorder=5,
+               edgecolors="white", linewidths=1.5)
 
     for x, y, lbl in zip(sharpnesses, f1s, labels):
-        ax.annotate(lbl, (x, y), xytext=(5, 5), textcoords="offset points", fontsize=9)
+        ax.annotate(lbl, (x, y), xytext=(5, 5), textcoords="offset points", fontsize=8)
 
     # Ligne de tendance
     if len(sharpnesses) > 2:
@@ -396,7 +398,7 @@ def plot_sharpness_vs_f1(
         xs = np.linspace(min(sharpnesses), max(sharpnesses), 100)
         ax.plot(xs, p(xs), "k--", lw=1.5, alpha=0.5, label="Tendance")
 
-    ax.set_xlabel("Sharpness du minimum", fontsize=12)
+    ax.set_xlabel(xlabel, fontsize=12)
     ax.set_ylabel("F1-score macro (validation)", fontsize=12)
     ax.set_title(
         "Relation Sharpness ↔ Généralisation\n"
@@ -479,6 +481,7 @@ def main() -> None:
             plot_optuna_parallel(study, save_path=output)
 
     # --- Scatter sharpness vs F1 ---
+    # Priorité 1 : fichier JSON fourni manuellement
     if args.sharpness_json:
         sharpness_path = Path(args.sharpness_json)
         if sharpness_path.exists():
@@ -487,6 +490,37 @@ def main() -> None:
             plot_sharpness_vs_f1(sharpness_data, save_path=output)
         else:
             logger.warning("Fichier sharpness introuvable : %s", sharpness_path)
+    else:
+        # Priorité 2 : construire automatiquement depuis optuna_trials.csv
+        # Proxy : |gap train-val| représente la "sharpness" du minimum
+        trials_csv = RESULTS_DIR / "optuna_trials.csv"
+        if trials_csv.exists():
+            df_trials = pd.read_csv(trials_csv)
+            df_trials = df_trials[df_trials["state"] == "COMPLETE"].dropna(
+                subset=["value", "user_attrs_train_f1", "user_attrs_gap"]
+            )
+            if not df_trials.empty:
+                sharpness_data = [
+                    {
+                        "sharpness": abs(row["user_attrs_gap"]),
+                        "val_f1": row["value"],
+                        "label": (
+                            f"t{int(row['number'])} "
+                            f"dr={row['params_dropout']:.1f} "
+                            f"wd={row['params_weight_decay']:.0e}"
+                        ),
+                    }
+                    for _, row in df_trials.iterrows()
+                ]
+                plot_sharpness_vs_f1(
+                    sharpness_data,
+                    save_path=output,
+                    xlabel="Proxy sharpness : |F1_train − F1_val|",
+                )
+            else:
+                logger.warning("Aucun trial COMPLETE dans %s — scatter sharpness ignoré", trials_csv)
+        else:
+            logger.warning("optuna_trials.csv introuvable — scatter sharpness ignoré")
 
     logger.info("Visualisations terminées. Figures dans : %s", output)
 
